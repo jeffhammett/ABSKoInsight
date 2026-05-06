@@ -155,8 +155,3 @@ KoInsight implements the KoSync protocol, so you can use it as a reading-progres
 
 # Development
 See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and instructions.
-
-# Roadmap
-(a.k.a things I want to do)
-
-See [Project board](https://github.com/users/GeorgeSG/projects/2)

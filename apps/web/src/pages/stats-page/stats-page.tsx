@@ -128,6 +128,21 @@ export function StatsPage(): JSX.Element {
     );
   }, [books]);
 
+  // Re-derive ebook per-day-of-week in the browser using local time, so it matches the
+  // calendar view. The server-computed perDayOfTheWeek uses UTC, which shifts sessions
+  // near midnight into the wrong day for users in non-UTC timezones.
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const ebookPerDayOfTheWeek = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const s of stats) {
+      const name = DAY_NAMES[getDay(new Date(s.start_time))];
+      totals[name] = (totals[name] ?? 0) + s.duration;
+    }
+    return DAY_NAMES
+      .map((name, day) => ({ name, value: totals[name] ?? 0, day }))
+      .filter((d) => d.value > 0);
+  }, [stats]);
+
   // Derive per-day, per-weekday, and per-month maps from sessions using browser-local
   // time (session.startedAt epoch ms), avoiding ABS server timezone offsets in absStats.days
   const absSessionDayMap = useMemo(() => {
@@ -158,8 +173,8 @@ export function StatsPage(): JSX.Element {
   );
 
   const combinedWeekdays = useMemo(
-    () => mergeWeekdays(perDayOfTheWeek, absSessionDayOfWeek),
-    [perDayOfTheWeek, absSessionDayOfWeek]
+    () => mergeWeekdays(ebookPerDayOfTheWeek, absSessionDayOfWeek),
+    [ebookPerDayOfTheWeek, absSessionDayOfWeek]
   );
 
   const absLast7DaysTime = useMemo(() => {
@@ -379,7 +394,7 @@ export function StatsPage(): JSX.Element {
             h={300}
             data={
               dataSource === 'ebook'
-                ? perDayOfTheWeek.map((d) => ({ name: d.name, value: d.value }))
+                ? ebookPerDayOfTheWeek.map((d) => ({ name: d.name, value: d.value }))
                 : Object.entries(DAY_ORDER)
                     .sort(([, a], [, b]) => a - b)
                     .map(([name]) => ({
