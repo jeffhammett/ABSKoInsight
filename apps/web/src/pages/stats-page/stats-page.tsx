@@ -187,13 +187,14 @@ export function StatsPage(): JSX.Element {
   const estimatedAbsTotalPages = useMemo(() => {
     let total = 0;
     let hasAny = false;
-    for (const b of absBooks) {
-      if (!b.reference_pages) continue;
+    for (const s of absSessions) {
+      const book = absBooksByItemId[s.libraryItemId];
+      if (!book?.reference_pages || !book.duration) continue;
       hasAny = true;
-      total += b.reference_pages * b.progress;
+      total += s.timeListening * (book.reference_pages / book.duration);
     }
     return hasAny ? Math.round(total) : null;
-  }, [absBooks]);
+  }, [absSessions, absBooksByItemId]);
 
   const estimatedAbsMostPagesInADay = useMemo(() => {
     if (!absBooks.some((b) => b.reference_pages)) return null;

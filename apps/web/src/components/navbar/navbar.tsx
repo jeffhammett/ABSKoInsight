@@ -11,7 +11,6 @@ import {
   IconBooks,
   IconCalendar,
   IconChartBar,
-  IconDevices,
   IconHome,
   IconMoon,
   IconRefresh,
@@ -74,7 +73,6 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
     { link: RoutePath.BOOKS, label: 'Books', icon: IconBooks },
     { link: RoutePath.CALENDAR, label: 'Calendar', icon: IconCalendar },
     { link: RoutePath.STATS, label: 'Reading stats', icon: IconChartBar },
-    { link: RoutePath.DEVICES, label: 'Devices', icon: IconDevices },
     { link: RoutePath.SETTINGS, label: 'Settings', icon: IconSettings },
   ];
 

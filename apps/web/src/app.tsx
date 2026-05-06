@@ -23,7 +23,6 @@ import { AbsBookPage } from './pages/abs-book-page/abs-book-page';
 import { BookPage } from './pages/book-page/book-page';
 import { BooksPage } from './pages/books-page/books-page';
 import { CalendarPage } from './pages/calendar-page';
-import { DevicesPage } from './pages/devices-page/devices-page';
 import { HomePage } from './pages/home-page/home-page';
 import { SeriesPage } from './pages/series-page/series-page';
 import { SettingsPage } from './pages/settings-page/settings-page';
@@ -77,7 +76,6 @@ export function App(): JSX.Element {
               <Route path={RoutePath.ABS_BOOK} element={<AbsBookPage />} />
               <Route path={RoutePath.CALENDAR} element={<CalendarPage />} />
               <Route path={RoutePath.STATS} element={<StatsPage />} />
-              <Route path={RoutePath.DEVICES} element={<DevicesPage />} />
               <Route path={RoutePath.SETTINGS} element={<SettingsPage />} />
               <Route path={RoutePath.SERIES} element={<SeriesPage />} />
               {/* Catch-all route goes last */}

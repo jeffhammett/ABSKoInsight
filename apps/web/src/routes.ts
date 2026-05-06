@@ -7,7 +7,6 @@ export enum RoutePath {
   ABS_BOOK = '/abs-books/:id',
   CALENDAR = '/calendar/',
   STATS = '/stats/',
-  DEVICES = '/devices',
   SETTINGS = '/settings',
   SERIES = '/series/:name',
 }

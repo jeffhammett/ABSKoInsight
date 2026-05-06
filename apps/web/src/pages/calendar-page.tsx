@@ -114,7 +114,7 @@ export function CalendarPage(): JSX.Element {
           elements.push(
             <div key={`abs-${itemId}`}>
               <IconHeadphones size={14} />{' '}
-              <Anchor component={Link} to={getAbsBookPath(itemId)}>
+              <Anchor component={Link} to={getAbsBookPath(itemId)} c="violet">
                 {title}
               </Anchor>
               <br />
