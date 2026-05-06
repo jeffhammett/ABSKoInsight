@@ -22,6 +22,7 @@ export type UnifiedBook = {
   totalPages: string;
   totalReadTime: number;
   lastActivityMs: number;
+  completed?: boolean;
 };
 
 type BooksTableProps = {
@@ -111,6 +112,11 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
                     {book.source === 'audiobook' && (
                       <Badge size="xs" color="violet" variant="light" w="fit-content">
                         audiobook
+                      </Badge>
+                    )}
+                    {book.completed && (
+                      <Badge size="xs" color="green" variant="light" w="fit-content">
+                        completed
                       </Badge>
                     )}
                   </Stack>

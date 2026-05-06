@@ -3,6 +3,12 @@ import { Settings, SettingsRepository } from './settings-repository';
 
 const router = Router();
 
+// Lazy import to avoid circular deps at module load time
+async function reschedule() {
+  const { reschedule: doReschedule } = await import('../scheduler');
+  await doReschedule();
+}
+
 function maskSettings(settings: Settings) {
   const { webdav_password, abs_api_key, ...rest } = settings;
   return {
@@ -20,8 +26,16 @@ router.get('/', async (_req, res) => {
 });
 
 router.put('/', async (req, res) => {
-  const { webdav_url, webdav_username, webdav_password, webdav_db_path, abs_url, abs_api_key } =
-    req.body;
+  const {
+    webdav_url,
+    webdav_username,
+    webdav_password,
+    webdav_db_path,
+    webdav_sync_interval_hours,
+    abs_url,
+    abs_api_key,
+    abs_sync_interval_minutes,
+  } = req.body;
 
   const errors: string[] = [];
   if (webdav_url) {
@@ -43,8 +57,13 @@ router.put('/', async (req, res) => {
   };
   if (webdav_password) updates.webdav_password = webdav_password;
   if (abs_api_key) updates.abs_api_key = abs_api_key;
+  if (webdav_sync_interval_hours !== undefined)
+    updates.webdav_sync_interval_hours = Number(webdav_sync_interval_hours);
+  if (abs_sync_interval_minutes !== undefined)
+    updates.abs_sync_interval_minutes = Number(abs_sync_interval_minutes);
 
   const settings = await SettingsRepository.update(updates);
+  reschedule().catch((e) => console.error('Reschedule failed:', e));
   res.json(maskSettings(settings));
 });
 

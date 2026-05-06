@@ -1,7 +1,7 @@
 import { AreaChart } from '@mantine/charts';
 import { Flex, Popover, Text, useComputedColorScheme, useMantineTheme } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
-import { IconCaretDownFilled, IconClock } from '@tabler/icons-react';
+import { IconArrowsVertical, IconCaretDownFilled, IconClock, IconPageBreak } from '@tabler/icons-react';
 import {
   addDays,
   differenceInCalendarDays,
@@ -15,11 +15,12 @@ import {
 } from 'date-fns';
 import { sum } from 'ramda';
 import { JSX, useMemo, useState } from 'react';
-import { useAbsSessions } from '../../api/audiobookshelf';
+import { AbsBook, useAbsSessions } from '../../api/audiobookshelf';
 import { Statistics } from '../../components/statistics/statistics';
+import { StatisticProps } from '../../components/statistics/statistic';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 
-export function AbsWeekStats(): JSX.Element {
+export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Record<string, AbsBook> }): JSX.Element {
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
   const { data: sessions = [] } = useAbsSessions();
@@ -46,6 +47,24 @@ export function AbsWeekStats(): JSX.Element {
 
   const totalTime = useMemo(() => sum(weekSessions.map((s) => s.timeListening)), [weekSessions]);
 
+  const estimatedPagesRead = useMemo(() => {
+    if (!Object.keys(absBooksByItemId).length) return null;
+    let pages = 0;
+    let hasAny = false;
+    for (const s of weekSessions) {
+      const book = absBooksByItemId[s.libraryItemId];
+      if (!book?.reference_pages || !book.duration) continue;
+      hasAny = true;
+      pages += s.timeListening * (book.reference_pages / book.duration);
+    }
+    return hasAny ? Math.round(pages) : null;
+  }, [weekSessions, absBooksByItemId]);
+
+  const estimatedAvgPagesPerDay = useMemo(() => {
+    if (estimatedPagesRead === null) return null;
+    return Math.round(estimatedPagesRead / weekDaysPassed);
+  }, [estimatedPagesRead, weekDaysPassed]);
+
   const perDay = useMemo(() => {
     const result = [];
     let day = weekStart;
@@ -59,6 +78,28 @@ export function AbsWeekStats(): JSX.Element {
     }
     return result;
   }, [sessions, weekStart, weekEnd]);
+
+  const statsData = useMemo((): StatisticProps[] => {
+    const base: StatisticProps[] = [
+      {
+        label: 'Listen time',
+        value: formatSecondsToHumanReadable(totalTime),
+        icon: IconClock,
+      },
+      {
+        label: 'Average time per day',
+        value: formatSecondsToHumanReadable(Math.round(totalTime / weekDaysPassed)),
+        icon: IconClock,
+      },
+    ];
+    if (estimatedPagesRead !== null) {
+      base.push(
+        { label: 'Estimated pages read', value: estimatedPagesRead, icon: IconPageBreak },
+        { label: 'Estimated avg pages/day', value: estimatedAvgPagesPerDay ?? 0, icon: IconArrowsVertical }
+      );
+    }
+    return base;
+  }, [totalTime, weekDaysPassed, estimatedPagesRead, estimatedAvgPagesPerDay]);
 
   return (
     <>
@@ -81,20 +122,7 @@ export function AbsWeekStats(): JSX.Element {
           />
         </Popover.Dropdown>
       </Popover>
-      <Statistics
-        data={[
-          {
-            label: 'Listen time',
-            value: formatSecondsToHumanReadable(totalTime),
-            icon: IconClock,
-          },
-          {
-            label: 'Average time per day',
-            value: formatSecondsToHumanReadable(Math.round(totalTime / weekDaysPassed)),
-            icon: IconClock,
-          },
-        ]}
-      />
+      <Statistics data={statsData} />
       <AreaChart
         h={300}
         mt="sm"

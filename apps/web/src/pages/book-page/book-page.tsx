@@ -157,6 +157,7 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
     book?.device_data.reduce((acc, device) => Math.max(acc, device.pages), 0) ||
     0;
 
+  const displayedReadPages = book?.completed_override ? bookPages : (book?.unique_read_pages ?? 0);
   const readingDays = book ? Object.keys(book.read_per_day).length : 0;
   const avgPerDay = readingDays > 0 ? (book?.total_read_time ?? 0) / readingDays : 0;
 
@@ -184,7 +185,7 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
               label={
                 <Stack gap={0} align="center">
                   <Text size="xl" fw={700} ta="center">
-                    {Math.round((book.unique_read_pages / bookPages) * 100)}%
+                    {bookPages > 0 ? Math.round((displayedReadPages / bookPages) * 100) : 0}%
                   </Text>
                   <Text size="xs" c="dimmed" ta="center" fw="bold">
                     {book.unique_read_pages} / {bookPages} <br /> pages read
@@ -193,7 +194,7 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
               }
               sections={[
                 {
-                  value: (book.unique_read_pages / bookPages) * 100,
+                  value: bookPages > 0 ? (displayedReadPages / bookPages) * 100 : 0,
                   color: 'koinsight',
                 },
               ]}

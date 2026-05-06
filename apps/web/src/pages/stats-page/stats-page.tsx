@@ -13,7 +13,7 @@ import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/
 import { format, getDay, parse, startOfDay, subDays } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
-import { useAbsSessions, useAbsStats } from '../../api/audiobookshelf';
+import { useAbsBooks, useAbsSessions, useAbsStats } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
 import { usePageStats } from '../../api/use-page-stats';
 import { CustomBar } from '../../components/charts/custom-bar';
@@ -100,6 +100,7 @@ export function StatsPage(): JSX.Element {
   const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
 
   const { data: books, isLoading: booksLoading } = useBooks();
+  const { data: absBooks = [] } = useAbsBooks();
   const {
     data: {
       stats,
@@ -175,6 +176,38 @@ export function StatsPage(): JSX.Element {
     if (!Object.keys(absSessionDayMap).length) return 0;
     return Math.max(0, ...Object.values(absSessionDayMap));
   }, [absSessionDayMap]);
+
+  const absBooksByItemId = useMemo(() => {
+    return absBooks.reduce<Record<string, typeof absBooks[0]>>((acc, b) => {
+      acc[b.id] = b;
+      return acc;
+    }, {});
+  }, [absBooks]);
+
+  const estimatedAbsTotalPages = useMemo(() => {
+    let total = 0;
+    let hasAny = false;
+    for (const b of absBooks) {
+      if (!b.reference_pages) continue;
+      hasAny = true;
+      total += b.reference_pages * b.progress;
+    }
+    return hasAny ? Math.round(total) : null;
+  }, [absBooks]);
+
+  const estimatedAbsMostPagesInADay = useMemo(() => {
+    if (!absBooks.some((b) => b.reference_pages)) return null;
+    const pagesPerDay: Record<string, number> = {};
+    for (const s of absSessions) {
+      const book = absBooksByItemId[s.libraryItemId];
+      if (!book?.reference_pages || !book.duration) continue;
+      const pagesPerSecond = book.reference_pages / book.duration;
+      const key = format(new Date(s.startedAt), 'yyyy-MM-dd');
+      pagesPerDay[key] = (pagesPerDay[key] ?? 0) + s.timeListening * pagesPerSecond;
+    }
+    if (!Object.keys(pagesPerDay).length) return null;
+    return Math.round(Math.max(...Object.values(pagesPerDay)));
+  }, [absSessions, absBooksByItemId, absBooks]);
 
   const isLoading =
     (showEbooks && (booksLoading || statsLoading)) ||
@@ -260,6 +293,10 @@ export function StatsPage(): JSX.Element {
                 value: formatSecondsToHumanReadable(absLongestDay),
                 icon: IconMaximize,
               },
+              ...(estimatedAbsTotalPages !== null ? [
+                { label: 'Estimated total pages read', value: estimatedAbsTotalPages, icon: IconPageBreak },
+                { label: 'Estimated most pages in a day', value: estimatedAbsMostPagesInADay ?? 'N/A', icon: IconMaximize },
+              ] : []),
             ]}
           />
         )}
@@ -283,6 +320,9 @@ export function StatsPage(): JSX.Element {
                 icon: IconMaximize,
               },
               { label: 'Total pages read', value: totalPagesRead, icon: IconPageBreak },
+              ...(estimatedAbsTotalPages !== null ? [
+                { label: 'Estimated audiobook pages', value: estimatedAbsTotalPages, icon: IconPageBreak },
+              ] : []),
             ]}
           />
         )}
@@ -314,7 +354,7 @@ export function StatsPage(): JSX.Element {
           <Title mt="xl" mb={4} order={3}>
             Weekly stats
           </Title>
-          <AbsWeekStats />
+          <AbsWeekStats absBooksByItemId={absBooksByItemId} />
         </>
       )}
 
@@ -394,16 +434,22 @@ export function StatsPage(): JSX.Element {
               shape: (props: BarProps) => (
                 <CustomBar
                   {...props}
-                  accent={colorScheme === 'dark' ? colors.violet[2] : colors.violet[8]}
+                  accent={
+                    dataSource === 'ebook'
+                      ? (colorScheme === 'dark' ? colors.koinsight[2] : colors.koinsight[8])
+                      : (colorScheme === 'dark' ? colors.violet[2] : colors.violet[8])
+                  }
                 />
               ),
             }}
             valueFormatter={(value) => formatSecondsToHumanReadable(value)}
             series={[
               {
-                name: dataSource === 'ebook' ? 'duration' : 'duration',
+                name: 'duration',
                 label: 'Time',
-                color: colorScheme === 'dark' ? 'violet.7' : 'violet.1',
+                color: dataSource === 'ebook'
+                  ? (colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.1')
+                  : (colorScheme === 'dark' ? 'violet.7' : 'violet.1'),
               },
             ]}
           />

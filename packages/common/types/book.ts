@@ -26,4 +26,5 @@ export type DbBook = {
 export type Book = DbBook & {
   soft_deleted: boolean;
   reference_pages: number | null;
+  completed_override: boolean;
 };

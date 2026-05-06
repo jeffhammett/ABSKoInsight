@@ -4,6 +4,8 @@ export interface AbsBookOverride {
   abs_item_id: string;
   hidden: boolean;
   deleted: boolean;
+  completed: boolean;
+  reference_pages: number | null;
 }
 
 export class AbsOverridesRepository {
@@ -29,6 +31,8 @@ export class AbsOverridesRepository {
         abs_item_id: absItemId,
         hidden: false,
         deleted: false,
+        completed: false,
+        reference_pages: null,
         ...data,
       });
     }

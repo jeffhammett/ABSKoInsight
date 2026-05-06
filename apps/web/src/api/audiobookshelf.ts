@@ -17,6 +17,8 @@ export interface AbsBook {
   source: 'audiobookshelf';
   hidden: boolean;
   deleted: boolean;
+  completed: boolean;
+  reference_pages?: number | null;
 }
 
 export interface AbsStats {
@@ -39,6 +41,12 @@ export interface AbsSession {
   dayOfWeek: string;
   startedAt: number;
   updatedAt: number;
+  deviceDescription?: string;
+}
+
+interface AbsSessionsResponse {
+  sessions: AbsSession[];
+  truncated: boolean;
 }
 
 export function useAbsBooks({ showHidden } = { showHidden: false }) {
@@ -67,13 +75,27 @@ export function useAbsStats() {
 }
 
 export function useAbsSessions() {
-  return useSWR('abs-sessions', () => fetchFromAPI<AbsSession[]>('audiobookshelf/sessions'), {
-    fallbackData: [],
-    shouldRetryOnError: false,
-  });
+  const { data, isLoading, error, mutate } = useSWR<AbsSessionsResponse>(
+    'abs-sessions',
+    () => fetchFromAPI<AbsSessionsResponse>('audiobookshelf/sessions'),
+    {
+      fallbackData: { sessions: [], truncated: false },
+      shouldRetryOnError: false,
+    }
+  );
+  return {
+    data: data?.sessions ?? [],
+    truncated: data?.truncated ?? false,
+    isLoading,
+    error,
+    mutate,
+  };
 }
 
-export async function updateAbsBook(id: string, data: { hidden?: boolean; deleted?: boolean }) {
+export async function updateAbsBook(
+  id: string,
+  data: { hidden?: boolean; deleted?: boolean; completed?: boolean; reference_pages?: number | null }
+) {
   return fetchFromAPI<{ message: string }>(`audiobookshelf/books/${id}`, 'PATCH', data);
 }
 
@@ -83,4 +105,16 @@ export function uploadAbsBookCover(itemId: string, formData: FormData) {
     body: formData,
     headers: { Accept: 'multipart/form-data' },
   });
+}
+
+export async function verifyAbsConnection(abs_url: string, abs_api_key: string) {
+  return fetchFromAPI<{ ok: boolean; message: string; username?: string }>(
+    'audiobookshelf/verify',
+    'POST',
+    { abs_url, abs_api_key }
+  );
+}
+
+export async function refreshAbsCache() {
+  return fetchFromAPI<{ message: string }>('audiobookshelf/refresh', 'POST');
 }

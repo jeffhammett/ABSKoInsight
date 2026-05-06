@@ -8,6 +8,7 @@ import style from './dot-trail.module.css';
 export type DayData = {
   percent: number;
   tooltip: ReactNode;
+  accentRgb?: string;
 };
 
 type DotTrailProps = {
@@ -28,13 +29,15 @@ export function DotTrail({ percentPerDay, accentRgb = '35, 186, 175' }: DotTrail
     startOfWeek(subDays(today, daysToFit), { locale: { options: { weekStartsOn: 1 } } })
   );
 
-  const getOutlineColor = (percent?: number): string => {
-    const backgound = colorScheme === 'light' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
-    return percent ? darken(`rgba(${accentRgb}, ${percent / 100})`, 0.4) : backgound;
+  const getOutlineColor = (percent?: number, dotAccentRgb?: string): string => {
+    const background = colorScheme === 'light' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
+    const rgb = dotAccentRgb ?? accentRgb;
+    return percent ? darken(`rgba(${rgb}, ${percent / 100})`, 0.4) : background;
   };
-  const getBackgroundColor = (percent?: number): string => {
-    const backgound = colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255)';
-    return percent ? `rgba(${accentRgb}, ${percent / 100})` : backgound;
+  const getBackgroundColor = (percent?: number, dotAccentRgb?: string): string => {
+    const background = colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255)';
+    const rgb = dotAccentRgb ?? accentRgb;
+    return percent ? `rgba(${rgb}, ${percent / 100})` : background;
   };
 
   const allDays = useMemo(() => {
@@ -64,8 +67,8 @@ export function DotTrail({ percentPerDay, accentRgb = '35, 186, 175' }: DotTrail
               key={day}
               className={style.Dot}
               style={{
-                outlineColor: getOutlineColor(percentPerDay[day]?.percent),
-                backgroundColor: getBackgroundColor(percentPerDay[day]?.percent),
+                outlineColor: getOutlineColor(percentPerDay[day]?.percent, percentPerDay[day]?.accentRgb),
+                backgroundColor: getBackgroundColor(percentPerDay[day]?.percent, percentPerDay[day]?.accentRgb),
               }}
             />
           </Tooltip>

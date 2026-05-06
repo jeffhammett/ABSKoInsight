@@ -1,12 +1,16 @@
 import { Book, BookWithData } from '@koinsight/common/types';
 import {
+  Badge,
   Button,
   Checkbox,
+  Divider,
   Flex,
   Group,
   Loader,
   Modal,
   Select,
+  Stack,
+  Text,
   TextInput,
   Title,
   Tooltip,
@@ -21,7 +25,7 @@ import {
   IconTable,
   IconX,
 } from '@tabler/icons-react';
-import { JSX, useState } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import { AbsBook, useAbsBooks } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
 import {
@@ -29,14 +33,22 @@ import {
   useDataSource,
 } from '../../components/data-source-toggle/data-source-toggle';
 import { EmptyState } from '../../components/empty-state/empty-state';
+import { getSeriesPath } from '../../routes';
 import { BooksCards } from './books-cards';
 import { BooksTable, UnifiedBook } from './books-table';
+import { NavLink } from 'react-router';
 
 import style from './books-page.module.css';
 
-type SortKey = 'title' | 'authors' | 'totalReadTime' | 'lastActivityMs';
+type SortKey = 'title' | 'authors' | 'totalReadTime' | 'lastActivityMs' | 'progressPct';
+
+function normalizeSeries(name: string | null | undefined): string {
+  if (!name) return '';
+  return name.toLowerCase().replace(/^the\s+/, '').trim();
+}
 
 function ebookToUnified(book: BookWithData): UnifiedBook {
+  const rawPct = book.total_pages > 0 ? (book.unique_read_pages / book.total_pages) * 100 : 0;
   return {
     key: `ebook-${book.id}`,
     source: 'ebook',
@@ -46,11 +58,12 @@ function ebookToUnified(book: BookWithData): UnifiedBook {
     ebookId: book.id,
     soft_deleted: book.soft_deleted,
     annotationsCount: book.annotations.length,
-    progressPct: book.total_pages > 0 ? (book.unique_read_pages / book.total_pages) * 100 : 0,
-    readLabel: String(book.unique_read_pages),
+    progressPct: book.completed_override ? 100 : rawPct,
+    readLabel: book.completed_override ? '100%' : String(book.unique_read_pages),
     totalPages: String(book.total_pages),
     totalReadTime: book.total_read_time ?? 0,
     lastActivityMs: (book.last_open ?? 0) * 1000,
+    completed: book.completed_override,
   };
 }
 
@@ -61,15 +74,16 @@ function absBookToUnified(book: AbsBook): UnifiedBook {
     source: 'audiobook',
     title: book.title,
     authors: book.authors || null,
-    series: null,
+    series: book.series,
     absItemId: book.id,
     soft_deleted: false,
     annotationsCount: 0,
-    progressPct: book.progress * 100,
-    readLabel: `${Math.round(book.progress * 100)}%`,
-    totalPages: 'N/A',
+    progressPct: book.completed ? 100 : book.progress * 100,
+    readLabel: book.completed ? '100%' : `${Math.round(book.progress * 100)}%`,
+    totalPages: book.reference_pages ? String(book.reference_pages) : 'N/A',
     totalReadTime: book.listeningTime ?? 0,
     lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
+    completed: book.completed,
   };
 }
 
@@ -87,6 +101,11 @@ export function BooksPage(): JSX.Element {
 
   const [showHiddenBooks, setShowHiddenBooks] = useLocalStorage<boolean>({
     key: 'koinsight-hidden-books',
+    defaultValue: false,
+  });
+
+  const [groupBySeries, setGroupBySeries] = useLocalStorage<boolean>({
+    key: 'koinsight-group-by-series',
     defaultValue: false,
   });
 
@@ -120,17 +139,44 @@ export function BooksPage(): JSX.Element {
     const dir = sortBy.direction === 'asc' ? 1 : -1;
     switch (sortBy.key) {
       case 'title':
-        return (a.title.localeCompare(b.title)) * dir;
+        return a.title.localeCompare(b.title) * dir;
       case 'authors':
-        return ((a.authors ?? '').localeCompare(b.authors ?? '')) * dir;
+        return (a.authors ?? '').localeCompare(b.authors ?? '') * dir;
       case 'totalReadTime':
         return (a.totalReadTime - b.totalReadTime) * dir;
       case 'lastActivityMs':
         return (a.lastActivityMs - b.lastActivityMs) * dir;
+      case 'progressPct':
+        return (a.progressPct - b.progressPct) * dir;
       default:
         return 0;
     }
   });
+
+  // Group by series
+  const grouped = useMemo(() => {
+    if (!groupBySeries) return null;
+    const groups = new Map<string, UnifiedBook[]>();
+    for (const book of sorted) {
+      const key = normalizeSeries(book.series) || '__ungrouped__';
+      const display = book.series || 'No series';
+      const existing = groups.get(key);
+      if (existing) {
+        existing.push(book);
+      } else {
+        groups.set(key, [book]);
+      }
+    }
+    return Array.from(groups.entries()).map(([key, books]) => ({
+      key,
+      name: books[0].series || 'No series',
+      books,
+    })).sort((a, b) => {
+      if (a.key === '__ungrouped__') return 1;
+      if (b.key === '__ungrouped__') return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [groupBySeries, sorted]);
 
   const isLoading = (showEbooks && ebooksLoading) || (showAudiobooks && absLoading);
 
@@ -166,6 +212,7 @@ export function BooksPage(): JSX.Element {
     { label: 'Title', value: 'title' },
     { label: 'Author', value: 'authors' },
     { label: 'Read time', value: 'totalReadTime' },
+    { label: 'Completion %', value: 'progressPct' },
   ];
 
   return (
@@ -217,10 +264,16 @@ export function BooksPage(): JSX.Element {
           <Tooltip label="Sort by" openDelay={1000} position="top" withArrow>
             <Select
               leftSection={<IconArrowsDownUp size={16} />}
-              w={150}
+              w={160}
               value={sortBy.key}
               allowDeselect={false}
-              onChange={(value) => setSortBy((prev) => ({ ...prev, key: value as SortKey }))}
+              onChange={(value) => {
+                const key = value as SortKey;
+                setSortBy({
+                  key,
+                  direction: key === 'progressPct' ? 'desc' : sortBy.direction,
+                });
+              }}
               data={sortOptions}
             />
           </Tooltip>
@@ -247,23 +300,57 @@ export function BooksPage(): JSX.Element {
       </div>
 
       {mode === 'table' || dataSource !== 'ebook' ? (
-        <BooksTable books={sorted} />
+        grouped ? (
+          <Stack gap="xl">
+            {grouped.map(({ key, name, books }) => (
+              <div key={key}>
+                <Flex align="center" gap="sm" mb="xs">
+                  {key !== '__ungrouped__' ? (
+                    <NavLink
+                      to={getSeriesPath(name)}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <Text fw={700} size="lg">
+                        {name}
+                      </Text>
+                    </NavLink>
+                  ) : (
+                    <Text fw={700} size="lg" c="dimmed">
+                      {name}
+                    </Text>
+                  )}
+                  <Badge variant="light" size="sm">
+                    {books.length}
+                  </Badge>
+                </Flex>
+                <BooksTable books={books} />
+                <Divider mt="md" />
+              </div>
+            ))}
+          </Stack>
+        ) : (
+          <BooksTable books={sorted} />
+        )
       ) : (
-        <BooksCards books={(ebooks ?? []).filter((b) => {
-          if (searchTerm.length === 0) return true;
-          return [b.title, b.authors, b.series]
-            .map((v) => v?.toLowerCase())
-            .some((v) => v?.includes(searchTerm.toLowerCase()));
-        }).sort((a, b) => {
-          const dir = sortBy.direction === 'asc' ? 1 : -1;
-          const aVal = a[sortBy.key as keyof BookWithData];
-          const bVal = b[sortBy.key as keyof BookWithData];
-          if (aVal == null) return 1;
-          if (bVal == null) return -1;
-          if (aVal < bVal) return -1 * dir;
-          if (aVal > bVal) return 1 * dir;
-          return 0;
-        })} />
+        <BooksCards
+          books={(ebooks ?? [])
+            .filter((b) => {
+              if (searchTerm.length === 0) return true;
+              return [b.title, b.authors, b.series]
+                .map((v) => v?.toLowerCase())
+                .some((v) => v?.includes(searchTerm.toLowerCase()));
+            })
+            .sort((a, b) => {
+              const dir = sortBy.direction === 'asc' ? 1 : -1;
+              const aVal = a[sortBy.key as keyof BookWithData];
+              const bVal = b[sortBy.key as keyof BookWithData];
+              if (aVal == null) return 1;
+              if (bVal == null) return -1;
+              if (aVal < bVal) return -1 * dir;
+              if (aVal > bVal) return 1 * dir;
+              return 0;
+            })}
+        />
       )}
 
       <Modal
@@ -281,11 +368,18 @@ export function BooksPage(): JSX.Element {
         radius="lg"
         centered
       >
-        <Checkbox
-          checked={showHiddenBooks}
-          onChange={(v) => setShowHiddenBooks(v.target.checked)}
-          label="View hidden books"
-        />
+        <Stack gap="md">
+          <Checkbox
+            checked={showHiddenBooks}
+            onChange={(v) => setShowHiddenBooks(v.target.checked)}
+            label="View hidden books"
+          />
+          <Checkbox
+            checked={groupBySeries}
+            onChange={(v) => setGroupBySeries(v.target.checked)}
+            label="Group by series"
+          />
+        </Stack>
       </Modal>
     </>
   );

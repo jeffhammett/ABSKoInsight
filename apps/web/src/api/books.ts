@@ -24,6 +24,10 @@ export async function showBook(id: Book['id']) {
   return fetchFromAPI<{ message: string }>(`books/${id}/hide`, 'PUT', { hidden: false });
 }
 
+export async function completeBook(id: Book['id'], completed: boolean) {
+  return fetchFromAPI<{ message: string }>(`books/${id}/complete`, 'PUT', { completed });
+}
+
 export async function updateBookReferencePages(id: Book['id'], referencePages: number | null) {
   return fetchFromAPI<Book>(`books/${id}/reference_pages`, 'PUT', {
     reference_pages: referencePages,

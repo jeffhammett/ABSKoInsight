@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { openAiRouter } from './ai/open-ai-router';
 import { absRouter } from './audiobookshelf/abs-router';
+import { startScheduler } from './scheduler';
 import { booksRouter } from './books/books-router';
 import { appConfig } from './config';
 import { devicesRouter } from './devices/devices-router';
@@ -67,6 +68,8 @@ async function main() {
   console.log('Running database migrations');
   await db.migrate.latest({ directory: path.join(__dirname, 'db', 'migrations') });
   console.log('Database migrated successfully');
+
+  await startScheduler();
 
   setupServer().then((server) => {
     process.on('SIGINT', (signal) => stopServer(signal, server));

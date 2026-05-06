@@ -39,14 +39,28 @@ export function ReadingCalendar({ absData, showEbookData = true, accentRgb }: Re
     const maxTime = Math.max(...Object.values(timePerDay).map((v) => v.ebook + v.audio), 1);
     const hasBothSources = showEbookData && !!absData;
 
+    // koinsight ≈ rgb(10, 166, 156), violet ≈ rgb(121, 80, 242)
+    const KO = [10, 166, 156];
+    const VI = [121, 80, 242];
+
     return Object.entries(timePerDay).reduce<Record<number, DayData>>((acc, [day, times]) => {
       const total = times.ebook + times.audio;
       const dayNum = Number(day);
       const dateLabel = formatDate(new Date(dayNum), 'dd MMM yyyy');
       const timeLabel = formatSecondsToHumanReadable(total);
 
+      let accentRgb: string | undefined;
+      if (hasBothSources && total > 0) {
+        const audioRatio = times.audio / total;
+        const r = Math.round(KO[0] + audioRatio * (VI[0] - KO[0]));
+        const g = Math.round(KO[1] + audioRatio * (VI[1] - KO[1]));
+        const b = Math.round(KO[2] + audioRatio * (VI[2] - KO[2]));
+        accentRgb = `${r}, ${g}, ${b}`;
+      }
+
       acc[dayNum] = {
         percent: Math.floor((total / maxTime) * 100),
+        accentRgb,
         tooltip: hasBothSources ? (
           <>{timeLabel} on {dateLabel}</>
         ) : !showEbookData ? (
