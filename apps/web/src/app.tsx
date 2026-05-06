@@ -22,8 +22,8 @@ import { Navbar } from './components/navbar/navbar';
 import { BookPage } from './pages/book-page/book-page';
 import { BooksPage } from './pages/books-page/books-page';
 import { CalendarPage } from './pages/calendar-page';
+import { SettingsPage } from './pages/settings-page/settings-page';
 import { StatsPage } from './pages/stats-page/stats-page';
-import { SyncsPage } from './pages/syncs-page';
 import { RoutePath } from './routes';
 
 const theme = createTheme({
@@ -71,7 +71,7 @@ export function App(): JSX.Element {
               <Route path={RoutePath.BOOK} element={<BookPage />} />
               <Route path={RoutePath.CALENDAR} element={<CalendarPage />} />
               <Route path={RoutePath.STATS} element={<StatsPage />} />
-              <Route path={RoutePath.SYNCS} element={<SyncsPage />} />
+              <Route path={RoutePath.SETTINGS} element={<SettingsPage />} />
               {/* Catch-all route goes last */}
               <Route
                 path="*"

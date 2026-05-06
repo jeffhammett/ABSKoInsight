@@ -2,24 +2,26 @@ import {
   ActionIcon,
   Box,
   Flex,
+  Tooltip,
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import {
   IconBooks,
   IconCalendar,
   IconChartBar,
-  IconDownload,
   IconMoon,
-  IconReload,
+  IconRefresh,
+  IconSettings,
   IconSun,
 } from '@tabler/icons-react';
 import { JSX, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
+import { mutate } from 'swr';
+import { triggerWebdavSync } from '../../api/sync';
 import { RoutePath } from '../../routes';
 import { Logo } from '../logo/logo';
-import { DownloadPluginModal } from './download-plugin';
 import { UploadForm } from './upload-form';
 
 import style from './navbar.module.css';
@@ -32,14 +34,36 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
     setColorScheme(computedColorScheme === 'dark' ? 'light' : 'dark');
   };
 
-  const [downloadOpened, { close: closeDownload, open: openDownload }] = useDisclosure(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await triggerWebdavSync();
+      await mutate(() => true, undefined, { revalidate: true });
+      notifications.show({
+        title: 'Sync complete',
+        message: result.message,
+        color: 'green',
+        position: 'top-center',
+      });
+    } catch (err: any) {
+      notifications.show({
+        title: 'Sync failed',
+        message: err?.message ?? 'An error occurred during sync.',
+        color: 'red',
+        position: 'top-center',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const tabs = [
     { link: RoutePath.BOOKS, label: 'Books', icon: IconBooks },
     { link: RoutePath.CALENDAR, label: 'Calendar', icon: IconCalendar },
     { link: RoutePath.STATS, label: 'Reading stats', icon: IconChartBar },
-    { link: RoutePath.SYNCS, label: 'Progress syncs', icon: IconReload },
-    { onClick: openDownload, label: 'KOReader Plugin', icon: IconDownload },
+    { link: RoutePath.SETTINGS, label: 'Settings', icon: IconSettings },
   ];
 
   const [active, setActive] = useState(
@@ -51,25 +75,18 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
     onNavigate?.();
   };
 
-  const links = tabs.map((item) =>
-    item.link ? (
-      <NavLink
-        className={style.Link}
-        data-active={item.link === active || undefined}
-        to={item.link}
-        key={item.label}
-        onClick={() => onClick(item.link)}
-      >
-        <item.icon className={style.LinkIcon} stroke={1.5} />
-        <span>{item.label}</span>
-      </NavLink>
-    ) : (
-      <a className={style.Link} key={item.label} onClick={() => item.onClick()}>
-        <item.icon className={style.LinkIcon} stroke={1.5} />
-        <span>{item.label}</span>
-      </a>
-    )
-  );
+  const links = tabs.map((item) => (
+    <NavLink
+      className={style.Link}
+      data-active={item.link === active || undefined}
+      to={item.link}
+      key={item.label}
+      onClick={() => onClick(item.link)}
+    >
+      <item.icon className={style.LinkIcon} stroke={1.5} />
+      <span>{item.label}</span>
+    </NavLink>
+  ));
 
   return (
     <Box className={style.Navbar} component="nav">
@@ -84,6 +101,17 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
       <div className={style.Footer}>
         <Flex gap="xs">
           <UploadForm />
+          <Tooltip label="Sync WebDAV & AudioBookShelf" position="top" withArrow openDelay={500}>
+            <ActionIcon
+              onClick={handleSync}
+              variant="default"
+              size="lg"
+              aria-label="Sync data"
+              loading={syncing}
+            >
+              <IconRefresh stroke={1.5} />
+            </ActionIcon>
+          </Tooltip>
           <ActionIcon
             onClick={toggleColorScheme}
             variant="default"
@@ -98,7 +126,6 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
           </ActionIcon>
         </Flex>
       </div>
-      <DownloadPluginModal opened={downloadOpened} onClose={closeDownload} />
     </Box>
   );
 }

@@ -4,6 +4,7 @@ import { Server } from 'http';
 import morgan from 'morgan';
 import path from 'path';
 import { openAiRouter } from './ai/open-ai-router';
+import { absRouter } from './audiobookshelf/abs-router';
 import { booksRouter } from './books/books-router';
 import { appConfig } from './config';
 import { devicesRouter } from './devices/devices-router';
@@ -11,7 +12,9 @@ import { db } from './knex';
 import { kopluginRouter } from './koplugin/koplugin-router';
 import { kosyncRouter } from './kosync/kosync-router';
 import { openLibraryRouter } from './open-library/open-library-router';
+import { settingsRouter } from './settings/settings-router';
 import { statsRouter } from './stats/stats-router';
+import { syncRouter } from './sync/sync-router';
 import { uploadRouter } from './upload/upload-router';
 
 async function setupServer() {
@@ -34,6 +37,9 @@ async function setupServer() {
   app.use('/api/upload', uploadRouter);
   app.use('/api/open-library', openLibraryRouter);
   app.use('/api/ai', openAiRouter);
+  app.use('/api/settings', settingsRouter);
+  app.use('/api/sync', syncRouter);
+  app.use('/api/audiobookshelf', absRouter);
 
   // Serve react app
   app.use(express.static(appConfig.webBuildPath));

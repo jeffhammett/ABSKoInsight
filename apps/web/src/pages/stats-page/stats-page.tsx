@@ -1,4 +1,4 @@
-import { Book } from '@koinsight/common/types/book';
+import { Book, PerDayOfTheWeek, PerMonthReadingTime } from '@koinsight/common/types';
 import { BarChart } from '@mantine/charts';
 import {
   Box,
@@ -9,22 +9,98 @@ import {
   useComputedColorScheme,
   useMantineTheme,
 } from '@mantine/core';
-import { IconClock, IconMaximize, IconPageBreak } from '@tabler/icons-react';
+import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/icons-react';
+import { format, parse } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
+import { AbsStats, useAbsStats } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
 import { usePageStats } from '../../api/use-page-stats';
 import { CustomBar } from '../../components/charts/custom-bar';
+import {
+  DataSourceToggle,
+  useDataSource,
+} from '../../components/data-source-toggle/data-source-toggle';
 import { ReadingCalendar } from '../../components/statistics/reading-calendar';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 import { WeekStats } from './week-stats';
 
+// Day order for sorting (ABS dayOfWeek keys are full day name strings like "Monday")
+const DAY_ORDER: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function absMonthlyToMap(absDays: Record<string, number>): Record<string, number> {
+  const monthly: Record<string, number> = {};
+  for (const [dateStr, seconds] of Object.entries(absDays)) {
+    // dateStr is "YYYY-MM-DD"
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const monthKey = format(new Date(y, mo - 1, d), 'MMMM yyyy');
+    monthly[monthKey] = (monthly[monthKey] ?? 0) + seconds;
+  }
+  return monthly;
+}
+
+function mergeMonthly(
+  koMonthly: PerMonthReadingTime[],
+  absMonthlyMap: Record<string, number>
+): Array<{ month: string; date: number; ebook: number; audiobook: number }> {
+  const result: Array<{ month: string; date: number; ebook: number; audiobook: number }> =
+    koMonthly.map((m) => ({
+      month: m.month,
+      date: m.date,
+      ebook: m.duration,
+      audiobook: absMonthlyMap[m.month] ?? 0,
+    }));
+
+  for (const [month, duration] of Object.entries(absMonthlyMap)) {
+    if (!result.find((m) => m.month === month)) {
+      const date = parse(month, 'MMMM yyyy', new Date()).getTime();
+      result.push({ month, date, ebook: 0, audiobook: duration });
+    }
+  }
+
+  return result.sort((a, b) => a.date - b.date);
+}
+
+function mergeWeekdays(
+  koDow: PerDayOfTheWeek[],
+  absDow: Record<string, number>
+): Array<{ name: string; ebook: number; audiobook: number; day: number }> {
+  // ABS dayOfWeek keys are full day name strings like "Monday" (same format as KoReader)
+  const result: Array<{ name: string; ebook: number; audiobook: number; day: number }> =
+    koDow.map((d) => ({
+      name: d.name,
+      day: d.day,
+      ebook: d.value,
+      audiobook: absDow[d.name] ?? 0,
+    }));
+
+  for (const [name, seconds] of Object.entries(absDow)) {
+    if (!result.find((d) => d.name === name)) {
+      result.push({ name, day: DAY_ORDER[name] ?? 0, ebook: 0, audiobook: seconds });
+    }
+  }
+
+  return result.sort((a, b) => a.day - b.day);
+}
+
 export function StatsPage(): JSX.Element {
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
-  const { data: books, isLoading: booksLoading } = useBooks();
+  const [dataSource, setDataSource] = useDataSource('stats');
 
+  const showEbooks = dataSource === 'ebook' || dataSource === 'both';
+  const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
+
+  const { data: books, isLoading: booksLoading } = useBooks();
   const {
     data: {
       stats,
@@ -39,6 +115,8 @@ export function StatsPage(): JSX.Element {
     isLoading: statsLoading,
   } = usePageStats();
 
+  const { data: absStats, isLoading: absLoading } = useAbsStats();
+
   const booksByMd5 = useMemo(() => {
     return books?.reduce(
       (acc, book) => {
@@ -49,7 +127,25 @@ export function StatsPage(): JSX.Element {
     );
   }, [books]);
 
-  if (booksLoading || statsLoading) {
+  const absMonthlyMap = useMemo(
+    () => (absStats?.days ? absMonthlyToMap(absStats.days) : {}),
+    [absStats]
+  );
+
+  const combinedMonthly = useMemo(
+    () => mergeMonthly(perMonth, absMonthlyMap),
+    [perMonth, absMonthlyMap]
+  );
+
+  const combinedWeekdays = useMemo(
+    () => mergeWeekdays(perDayOfTheWeek, absStats?.dayOfWeek ?? {}),
+    [perDayOfTheWeek, absStats]
+  );
+
+  const isLoading =
+    (showEbooks && (booksLoading || statsLoading)) || (showAudiobooks && absLoading);
+
+  if (isLoading) {
     return (
       <Flex justify="center" align="center" h="100%">
         <Loader />
@@ -57,9 +153,17 @@ export function StatsPage(): JSX.Element {
     );
   }
 
+  const totalListeningTime = absStats?.totalTime ?? 0;
+  const combinedTotal = (showEbooks ? totalReadingTime : 0) + (showAudiobooks ? totalListeningTime : 0);
+  const last7Days = showEbooks ? last7DaysReadTime : 0;
+
   return (
     <>
-      <Title mb="sm">Reading statistics</Title>
+      <Flex justify="space-between" align="center" mb="sm" wrap="wrap" gap="sm">
+        <Title>Reading statistics</Title>
+        <DataSourceToggle value={dataSource} onChange={setDataSource} />
+      </Flex>
+
       <Text
         mt={4}
         mb="md"
@@ -72,103 +176,226 @@ export function StatsPage(): JSX.Element {
         }}
         fw={900}
       >
-        {last7DaysReadTime > 0 ? (
-          <>You read for {formatSecondsToHumanReadable(last7DaysReadTime)} this week. Keep it up!</>
+        {last7Days > 0 ? (
+          <>You read for {formatSecondsToHumanReadable(last7Days)} this week. Keep it up!</>
         ) : (
           <>You haven't read this week yet. No better time to start!</>
         )}
       </Text>
+
       <Box my="xl">
-        <Statistics
-          data={[
-            {
-              label: 'Total read time',
-              value: formatSecondsToHumanReadable(totalReadingTime),
-              icon: IconClock,
-            },
-            {
-              label: 'Total pages read',
-              value: totalPagesRead,
-              icon: IconPageBreak,
-            },
-            {
-              label: 'Longest time reading in a day',
-              value: formatSecondsToHumanReadable(longestDay),
-              icon: IconMaximize,
-            },
-            {
-              label: 'Most pages in a day',
-              value: mostPagesInADay ?? 'N/A',
-              icon: IconMaximize,
-            },
-          ]}
-        />
+        {dataSource === 'ebook' && (
+          <Statistics
+            data={[
+              {
+                label: 'Total read time',
+                value: formatSecondsToHumanReadable(totalReadingTime),
+                icon: IconClock,
+              },
+              { label: 'Total pages read', value: totalPagesRead, icon: IconPageBreak },
+              {
+                label: 'Longest time reading in a day',
+                value: formatSecondsToHumanReadable(longestDay),
+                icon: IconMaximize,
+              },
+              {
+                label: 'Most pages in a day',
+                value: mostPagesInADay ?? 'N/A',
+                icon: IconMaximize,
+              },
+            ]}
+          />
+        )}
+
+        {dataSource === 'audiobook' && (
+          <Statistics
+            data={[
+              {
+                label: 'Total listening time',
+                value: formatSecondsToHumanReadable(totalListeningTime),
+                icon: IconHeadphones,
+              },
+              {
+                label: 'Audiobooks in library',
+                value: absStats?.booksCount ?? 0,
+                icon: IconHeadphones,
+              },
+            ]}
+          />
+        )}
+
+        {dataSource === 'both' && (
+          <Statistics
+            data={[
+              {
+                label: 'Total read time',
+                value: formatSecondsToHumanReadable(totalReadingTime),
+                icon: IconClock,
+              },
+              {
+                label: 'Total listening time',
+                value: formatSecondsToHumanReadable(totalListeningTime),
+                icon: IconHeadphones,
+              },
+              {
+                label: 'Combined total',
+                value: formatSecondsToHumanReadable(combinedTotal),
+                icon: IconMaximize,
+              },
+              { label: 'Total pages read', value: totalPagesRead, icon: IconPageBreak },
+            ]}
+          />
+        )}
       </Box>
-      <Title mb="xl" order={3}>
-        Reading history
-      </Title>
-      <Box mb="xl">
-        <ReadingCalendar />
-      </Box>
-      <Title mt="xl" mb={4} order={3}>
-        Weekly stats
-      </Title>
-      <WeekStats stats={stats} booksByMd5={booksByMd5} />
-      <Title mt="xl" order={3}>
-        Per day of the week
-      </Title>
-      <BarChart
-        h={300}
-        data={perDayOfTheWeek}
-        dataKey="name"
-        series={[
-          {
-            name: 'value',
-            label: 'Reading time',
-            color: colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.1',
-          },
-        ]}
-        gridAxis="none"
-        withYAxis={false}
-        barProps={{
-          maxBarSize: 100,
-          shape: (props: BarProps) => (
-            <CustomBar
-              {...props}
-              accent={colorScheme === 'dark' ? colors.koinsight[2] : colors.koinsight[8]}
-            />
-          ),
-        }}
-        valueFormatter={(value) => formatSecondsToHumanReadable(value)}
-      />
-      <Title mt="xl" order={3}>
-        Monthly reading time
-      </Title>
-      <BarChart
-        h={300}
-        mt="sm"
-        data={perMonth}
-        dataKey="month"
-        gridAxis="none"
-        withYAxis={false}
-        barProps={{
-          maxBarSize: 100,
-          shape: (props: BarProps) => (
-            <CustomBar
-              {...props}
-              accent={colorScheme === 'dark' ? colors.violet[2] : colors.violet[8]}
-            />
-          ),
-        }}
-        valueFormatter={(value) => formatSecondsToHumanReadable(value)}
-        series={[
-          {
-            name: 'duration',
-            label: 'Reading time',
-            color: colorScheme === 'dark' ? 'violet.7' : 'violet.1',
-          },
-        ]}
-      />
+
+      {showEbooks && (
+        <>
+          <Title mb="xl" order={3}>
+            Reading history
+          </Title>
+          <Box mb="xl">
+            <ReadingCalendar />
+          </Box>
+        </>
+      )}
+
+      {dataSource === 'ebook' && (
+        <>
+          <Title mt="xl" mb={4} order={3}>
+            Weekly stats
+          </Title>
+          <WeekStats stats={stats} booksByMd5={booksByMd5} />
+        </>
+      )}
+
+      {dataSource !== 'both' && (
+        <>
+          <Title mt="xl" order={3}>
+            Per day of the week
+          </Title>
+          <BarChart
+            h={300}
+            data={
+              dataSource === 'ebook'
+                ? perDayOfTheWeek.map((d) => ({ name: d.name, value: d.value }))
+                : Object.entries(DAY_ORDER)
+                    .sort(([, a], [, b]) => a - b)
+                    .map(([name]) => ({
+                      name,
+                      value: absStats?.dayOfWeek?.[name] ?? 0,
+                    }))
+            }
+            dataKey="name"
+            series={[
+              {
+                name: 'value',
+                label: 'Time',
+                color: colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.1',
+              },
+            ]}
+            gridAxis="none"
+            withYAxis={false}
+            barProps={{
+              maxBarSize: 100,
+              shape: (props: BarProps) => (
+                <CustomBar
+                  {...props}
+                  accent={colorScheme === 'dark' ? colors.koinsight[2] : colors.koinsight[8]}
+                />
+              ),
+            }}
+            valueFormatter={(value) => formatSecondsToHumanReadable(value)}
+          />
+
+          <Title mt="xl" order={3}>
+            Monthly {dataSource === 'audiobook' ? 'listening' : 'reading'} time
+          </Title>
+          <BarChart
+            h={300}
+            mt="sm"
+            data={
+              dataSource === 'ebook'
+                ? perMonth
+                : Object.entries(absMonthlyMap).map(([month, duration]) => ({ month, duration }))
+            }
+            dataKey="month"
+            gridAxis="none"
+            withYAxis={false}
+            barProps={{
+              maxBarSize: 100,
+              shape: (props: BarProps) => (
+                <CustomBar
+                  {...props}
+                  accent={colorScheme === 'dark' ? colors.violet[2] : colors.violet[8]}
+                />
+              ),
+            }}
+            valueFormatter={(value) => formatSecondsToHumanReadable(value)}
+            series={[
+              {
+                name: 'duration',
+                label: 'Time',
+                color: colorScheme === 'dark' ? 'violet.7' : 'violet.1',
+              },
+            ]}
+          />
+        </>
+      )}
+
+      {dataSource === 'both' && (
+        <>
+          <Title mt="xl" order={3}>
+            Per day of the week
+          </Title>
+          <BarChart
+            h={300}
+            data={combinedWeekdays}
+            dataKey="name"
+            series={[
+              {
+                name: 'ebook',
+                label: 'E-books',
+                color: colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.5',
+              },
+              {
+                name: 'audiobook',
+                label: 'Audiobooks',
+                color: colorScheme === 'dark' ? 'violet.5' : 'violet.6',
+              },
+            ]}
+            gridAxis="none"
+            withYAxis={false}
+            barProps={{ maxBarSize: 60 }}
+            valueFormatter={(value) => formatSecondsToHumanReadable(value)}
+          />
+
+          <Title mt="xl" order={3}>
+            Monthly time
+          </Title>
+          <BarChart
+            h={300}
+            mt="sm"
+            data={combinedMonthly}
+            dataKey="month"
+            gridAxis="none"
+            withYAxis={false}
+            barProps={{ maxBarSize: 60 }}
+            valueFormatter={(value) => formatSecondsToHumanReadable(value)}
+            series={[
+              {
+                name: 'ebook',
+                label: 'E-books',
+                color: colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.5',
+              },
+              {
+                name: 'audiobook',
+                label: 'Audiobooks',
+                color: colorScheme === 'dark' ? 'violet.5' : 'violet.6',
+              },
+            ]}
+          />
+        </>
+      )}
     </>
   );
 }
