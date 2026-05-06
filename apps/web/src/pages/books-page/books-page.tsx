@@ -59,11 +59,11 @@ function ebookToUnified(book: BookWithData): UnifiedBook {
     soft_deleted: book.soft_deleted,
     annotationsCount: book.annotations.length,
     progressPct: book.completed_override ? 100 : rawPct,
-    readLabel: book.completed_override ? '100%' : String(book.unique_read_pages),
+    readLabel: `${Math.round(rawPct)}%`,
     totalPages: String(book.total_pages),
     totalReadTime: book.total_read_time ?? 0,
     lastActivityMs: (book.last_open ?? 0) * 1000,
-    completed: book.completed_override,
+    completed: !!book.completed_override,
   };
 }
 
@@ -83,7 +83,7 @@ function absBookToUnified(book: AbsBook): UnifiedBook {
     totalPages: book.reference_pages ? String(book.reference_pages) : 'N/A',
     totalReadTime: book.listeningTime ?? 0,
     lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
-    completed: book.completed,
+    completed: !!book.completed,
   };
 }
 

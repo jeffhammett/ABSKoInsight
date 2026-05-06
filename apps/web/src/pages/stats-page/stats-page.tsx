@@ -335,10 +335,11 @@ export function StatsPage(): JSX.Element {
                 value: formatSecondsToHumanReadable(combinedTotal),
                 icon: IconMaximize,
               },
-              { label: 'Total pages read', value: totalPagesRead, icon: IconPageBreak },
-              ...(estimatedAbsTotalPages !== null ? [
-                { label: 'Estimated audiobook pages', value: estimatedAbsTotalPages, icon: IconPageBreak },
-              ] : []),
+              {
+                label: 'Total pages read',
+                value: totalPagesRead + (estimatedAbsTotalPages ?? 0),
+                icon: IconPageBreak,
+              },
             ]}
           />
         )}
