@@ -1,10 +1,11 @@
 import useSWR from 'swr';
-import { fetchFromAPI } from './api';
+import { API_URL, fetchFromAPI } from './api';
 
 export interface AbsBook {
   id: string;
   title: string;
   authors: string;
+  series: string | null;
   duration: number;
   addedAt: number;
   progress: number;
@@ -13,6 +14,8 @@ export interface AbsBook {
   finishedAt: number | null;
   lastUpdate: number | null;
   source: 'audiobookshelf';
+  hidden: boolean;
+  deleted: boolean;
 }
 
 export interface AbsStats {
@@ -37,11 +40,15 @@ export interface AbsSession {
   updatedAt: number;
 }
 
-export function useAbsBooks() {
-  return useSWR('abs-books', () => fetchFromAPI<AbsBook[]>('audiobookshelf/books'), {
-    fallbackData: [],
-    shouldRetryOnError: false,
-  });
+export function useAbsBooks({ showHidden } = { showHidden: false }) {
+  return useSWR(
+    ['abs-books', showHidden],
+    () => fetchFromAPI<AbsBook[]>('audiobookshelf/books', 'GET', { showHidden }),
+    {
+      fallbackData: [],
+      shouldRetryOnError: false,
+    }
+  );
 }
 
 export function useAbsStats() {
@@ -54,5 +61,17 @@ export function useAbsSessions() {
   return useSWR('abs-sessions', () => fetchFromAPI<AbsSession[]>('audiobookshelf/sessions'), {
     fallbackData: [],
     shouldRetryOnError: false,
+  });
+}
+
+export async function updateAbsBook(id: string, data: { hidden?: boolean; deleted?: boolean }) {
+  return fetchFromAPI<{ message: string }>(`audiobookshelf/books/${id}`, 'PATCH', data);
+}
+
+export function uploadAbsBookCover(itemId: string, formData: FormData) {
+  return fetch(`${API_URL}/audiobookshelf/books/${itemId}/cover`, {
+    method: 'POST',
+    body: formData,
+    headers: { Accept: 'multipart/form-data' },
   });
 }

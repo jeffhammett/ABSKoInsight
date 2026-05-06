@@ -97,7 +97,7 @@ export function BooksPage(): JSX.Element {
   });
 
   const { data: ebooks, isLoading: ebooksLoading, error } = useBooks({ showHidden: showHiddenBooks });
-  const { data: absBooks, isLoading: absLoading } = useAbsBooks();
+  const { data: absBooks, isLoading: absLoading } = useAbsBooks({ showHidden: showHiddenBooks });
 
   const showEbooks = dataSource === 'ebook' || dataSource === 'both';
   const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
