@@ -114,11 +114,6 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
                         audiobook
                       </Badge>
                     )}
-                    {book.completed && (
-                      <Badge size="xs" color="green" variant="light" w="fit-content">
-                        completed
-                      </Badge>
-                    )}
                   </Stack>
                 </Flex>
               </Table.Td>

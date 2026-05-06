@@ -59,7 +59,7 @@ function ebookToUnified(book: BookWithData): UnifiedBook {
     soft_deleted: book.soft_deleted,
     annotationsCount: book.annotations.length,
     progressPct: book.completed_override ? 100 : rawPct,
-    readLabel: `${Math.round(rawPct)}%`,
+    readLabel: book.completed_override ? '100%' : `${Math.round(rawPct)}%`,
     totalPages: String(book.total_pages),
     totalReadTime: book.total_read_time ?? 0,
     lastActivityMs: (book.last_open ?? 0) * 1000,
