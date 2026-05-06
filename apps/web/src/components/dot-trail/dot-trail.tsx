@@ -12,9 +12,10 @@ export type DayData = {
 
 type DotTrailProps = {
   percentPerDay: Record<number, DayData>;
+  accentRgb?: string;
 };
 
-export function DotTrail({ percentPerDay }: DotTrailProps): JSX.Element {
+export function DotTrail({ percentPerDay, accentRgb = '35, 186, 175' }: DotTrailProps): JSX.Element {
   const [ref, rect] = useResizeObserver();
   const colorScheme = useComputedColorScheme();
 
@@ -29,12 +30,11 @@ export function DotTrail({ percentPerDay }: DotTrailProps): JSX.Element {
 
   const getOutlineColor = (percent?: number): string => {
     const backgound = colorScheme === 'light' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
-
-    return percent ? darken(`rgba(35, 186, 175, ${percent / 100})`, 0.4) : backgound;
+    return percent ? darken(`rgba(${accentRgb}, ${percent / 100})`, 0.4) : backgound;
   };
   const getBackgroundColor = (percent?: number): string => {
     const backgound = colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255)';
-    return percent ? `rgba(35, 186, 175, ${percent / 100})` : backgound;
+    return percent ? `rgba(${accentRgb}, ${percent / 100})` : backgound;
   };
 
   const allDays = useMemo(() => {

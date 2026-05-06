@@ -10,10 +10,10 @@ import {
   useMantineTheme,
 } from '@mantine/core';
 import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/icons-react';
-import { format, parse, startOfDay, subDays } from 'date-fns';
+import { format, getDay, parse, startOfDay, subDays } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
-import { AbsStats, useAbsStats } from '../../api/audiobookshelf';
+import { useAbsSessions, useAbsStats } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
 import { usePageStats } from '../../api/use-page-stats';
 import { CustomBar } from '../../components/charts/custom-bar';
@@ -114,6 +114,7 @@ export function StatsPage(): JSX.Element {
   } = usePageStats();
 
   const { data: absStats, isLoading: absLoading } = useAbsStats();
+  const { data: absSessions = [] } = useAbsSessions();
 
   const booksByMd5 = useMemo(() => {
     return books?.reduce(
@@ -125,9 +126,28 @@ export function StatsPage(): JSX.Element {
     );
   }, [books]);
 
+  // Derive per-day, per-weekday, and per-month maps from sessions using browser-local
+  // time (session.startedAt epoch ms), avoiding ABS server timezone offsets in absStats.days
+  const absSessionDayMap = useMemo(() => {
+    return absSessions.reduce<Record<string, number>>((acc, s) => {
+      const key = format(new Date(s.startedAt), 'yyyy-MM-dd');
+      acc[key] = (acc[key] ?? 0) + s.timeListening;
+      return acc;
+    }, {});
+  }, [absSessions]);
+
+  const absSessionDayOfWeek = useMemo(() => {
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return absSessions.reduce<Record<string, number>>((acc, s) => {
+      const name = DAY_NAMES[getDay(new Date(s.startedAt))];
+      acc[name] = (acc[name] ?? 0) + s.timeListening;
+      return acc;
+    }, {});
+  }, [absSessions]);
+
   const absMonthlyMap = useMemo(
-    () => (absStats?.days ? absMonthlyToMap(absStats.days) : {}),
-    [absStats]
+    () => absMonthlyToMap(absSessionDayMap),
+    [absSessionDayMap]
   );
 
   const combinedMonthly = useMemo(
@@ -136,26 +156,24 @@ export function StatsPage(): JSX.Element {
   );
 
   const combinedWeekdays = useMemo(
-    () => mergeWeekdays(perDayOfTheWeek, absStats?.dayOfWeek ?? {}),
-    [perDayOfTheWeek, absStats]
+    () => mergeWeekdays(perDayOfTheWeek, absSessionDayOfWeek),
+    [perDayOfTheWeek, absSessionDayOfWeek]
   );
 
   const absLast7DaysTime = useMemo(() => {
-    if (!absStats?.days) return 0;
     const today = startOfDay(new Date());
     const sevenDaysAgo = subDays(today, 6);
-    return Object.entries(absStats.days).reduce((acc, [dateStr, seconds]) => {
-      const [y, mo, d] = dateStr.split('-').map(Number);
-      const dayDate = new Date(y, mo - 1, d);
-      if (dayDate >= sevenDaysAgo && dayDate <= today) return acc + seconds;
+    return absSessions.reduce((acc, s) => {
+      const day = startOfDay(new Date(s.startedAt));
+      if (day >= sevenDaysAgo && day <= today) return acc + s.timeListening;
       return acc;
     }, 0);
-  }, [absStats]);
+  }, [absSessions]);
 
   const absLongestDay = useMemo(() => {
-    if (!absStats?.days) return 0;
-    return Math.max(0, ...Object.values(absStats.days));
-  }, [absStats]);
+    if (!Object.keys(absSessionDayMap).length) return 0;
+    return Math.max(0, ...Object.values(absSessionDayMap));
+  }, [absSessionDayMap]);
 
   const isLoading =
     (showEbooks && (booksLoading || statsLoading)) || (showAudiobooks && absLoading);
@@ -289,7 +307,11 @@ export function StatsPage(): JSX.Element {
             Listening history
           </Title>
           <Box mb="xl">
-            <ReadingCalendar showEbookData={false} absData={absStats?.days} />
+            <ReadingCalendar
+              showEbookData={false}
+              absData={absSessionDayMap}
+              accentRgb="121, 80, 242"
+            />
           </Box>
           <Title mt="xl" mb={4} order={3}>
             Weekly stats
@@ -304,7 +326,7 @@ export function StatsPage(): JSX.Element {
             Reading history
           </Title>
           <Box mb="xl">
-            <ReadingCalendar absData={absStats?.days} />
+            <ReadingCalendar absData={absSessionDayMap} />
           </Box>
         </>
       )}
@@ -323,7 +345,7 @@ export function StatsPage(): JSX.Element {
                     .sort(([, a], [, b]) => a - b)
                     .map(([name]) => ({
                       name,
-                      value: absStats?.dayOfWeek?.[name] ?? 0,
+                      value: absSessionDayOfWeek[name] ?? 0,
                     }))
             }
             dataKey="name"
@@ -331,7 +353,10 @@ export function StatsPage(): JSX.Element {
               {
                 name: 'value',
                 label: 'Time',
-                color: colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.1',
+                color:
+                  dataSource === 'audiobook'
+                    ? colorScheme === 'dark' ? 'violet.7' : 'violet.1'
+                    : colorScheme === 'dark' ? 'koinsight.7' : 'koinsight.1',
               },
             ]}
             gridAxis="none"
@@ -341,7 +366,11 @@ export function StatsPage(): JSX.Element {
               shape: (props: BarProps) => (
                 <CustomBar
                   {...props}
-                  accent={colorScheme === 'dark' ? colors.koinsight[2] : colors.koinsight[8]}
+                  accent={
+                    dataSource === 'audiobook'
+                      ? colorScheme === 'dark' ? colors.violet[2] : colors.violet[8]
+                      : colorScheme === 'dark' ? colors.koinsight[2] : colors.koinsight[8]
+                  }
                 />
               ),
             }}

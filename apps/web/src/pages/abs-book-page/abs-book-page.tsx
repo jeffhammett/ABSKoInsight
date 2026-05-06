@@ -22,6 +22,7 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 import { startOfDay } from 'date-fns';
+import { sum } from 'ramda';
 import { JSX, useState } from 'react';
 import { useParams } from 'react-router';
 import { AbsBook, useAbsBooks, useAbsSessions } from '../../api/audiobookshelf';
@@ -154,11 +155,13 @@ function AbsStatsCard({
 }): JSX.Element {
   const progressPct = Math.round(book.progress * 100);
 
+  const totalListeningTime = sum((sessions ?? []).map((s) => s.timeListening));
+
   const listeningDays = new Set(
     (sessions ?? []).map((s) => startOfDay(new Date(s.startedAt)).getTime().toString())
   ).size;
 
-  const avgPerDay = listeningDays > 0 ? book.currentTime / listeningDays : 0;
+  const avgPerDay = listeningDays > 0 ? totalListeningTime / listeningDays : 0;
 
   return (
     <Paper
@@ -203,7 +206,7 @@ function AbsStatsCard({
                   Total listening time
                 </Text>
                 <Text size="md" fw={600}>
-                  {formatSecondsToHumanReadable(book.currentTime)}
+                  {formatSecondsToHumanReadable(totalListeningTime)}
                 </Text>
               </Stack>
             </Group>

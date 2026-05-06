@@ -8,9 +8,10 @@ import { DayData, DotTrail } from '../dot-trail/dot-trail';
 type ReadingCalendarProps = {
   absData?: Record<string, number>;
   showEbookData?: boolean;
+  accentRgb?: string;
 };
 
-export function ReadingCalendar({ absData, showEbookData = true }: ReadingCalendarProps): JSX.Element {
+export function ReadingCalendar({ absData, showEbookData = true, accentRgb }: ReadingCalendarProps): JSX.Element {
   const {
     data: { stats },
   } = usePageStats();
@@ -60,7 +61,7 @@ export function ReadingCalendar({ absData, showEbookData = true }: ReadingCalend
 
   return (
     <Flex style={{ width: '100%' }} justify="center" align="center">
-      <DotTrail percentPerDay={percentPerDay} />
+      <DotTrail percentPerDay={percentPerDay} accentRgb={accentRgb} />
     </Flex>
   );
 }

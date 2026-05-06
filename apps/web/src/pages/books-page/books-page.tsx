@@ -68,7 +68,7 @@ function absBookToUnified(book: AbsBook): UnifiedBook {
     progressPct: book.progress * 100,
     readLabel: `${Math.round(book.progress * 100)}%`,
     totalPages: 'N/A',
-    totalReadTime: book.currentTime ?? 0,
+    totalReadTime: book.listeningTime ?? 0,
     lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
   };
 }

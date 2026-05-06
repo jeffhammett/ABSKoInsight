@@ -79,6 +79,18 @@ router.get('/books', async (req, res) => {
       overrideMap[o.abs_item_id] = { hidden: o.hidden, deleted: o.deleted };
     }
 
+    // Sum actual listening time per book from session records
+    const sessionsData = await absRequest<{ sessions?: any[] }>(
+      config.absUrl,
+      config.apiKey,
+      '/api/me/listening-sessions?page=0&itemsPerPage=1000'
+    );
+    const listeningTimeMap: Record<string, number> = {};
+    for (const session of sessionsData.sessions ?? []) {
+      const itemId = session.libraryItemId as string;
+      listeningTimeMap[itemId] = (listeningTimeMap[itemId] ?? 0) + (session.timeListening ?? 0);
+    }
+
     const books = allItems
       .map((item: any) => {
         const meta = item.media?.metadata ?? {};
@@ -93,6 +105,7 @@ router.get('/books', async (req, res) => {
           addedAt: item.addedAt ?? 0,
           progress: progress.progress ?? 0,
           currentTime: progress.currentTime ?? 0,
+          listeningTime: listeningTimeMap[item.id] ?? 0,
           isFinished: progress.isFinished ?? false,
           finishedAt: progress.finishedAt ?? null,
           lastUpdate: progress.lastUpdate ?? null,

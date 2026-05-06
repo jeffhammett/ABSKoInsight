@@ -10,6 +10,7 @@ export interface AbsBook {
   addedAt: number;
   progress: number;
   currentTime: number;
+  listeningTime: number;
   isFinished: boolean;
   finishedAt: number | null;
   lastUpdate: number | null;
