@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { existsSync, mkdirSync, promises as fsPromises, rmSync } from 'fs';
 import multer from 'multer';
 import path from 'path';
@@ -110,7 +110,7 @@ router.get('/books', async (req, res) => {
   }
 });
 
-router.patch('/books/:id', async (req, res) => {
+router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params;
   const { hidden, deleted } = req.body as { hidden?: boolean; deleted?: boolean };
 
@@ -140,7 +140,7 @@ const coverUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-router.post('/books/:id/cover', coverUpload.single('file'), async (req, res) => {
+router.post('/books/:id/cover', coverUpload.single('file'), async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params;
   const file = req.file;
 
@@ -214,7 +214,7 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
-router.get('/cover/:itemId', async (req, res) => {
+router.get('/cover/:itemId', async (req: Request<{ itemId: string }>, res: Response) => {
   const { itemId } = req.params;
 
   // Serve custom cover if one has been uploaded
