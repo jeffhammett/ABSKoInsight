@@ -25,6 +25,7 @@ import { BooksPage } from './pages/books-page/books-page';
 import { CalendarPage } from './pages/calendar-page';
 import { HomePage } from './pages/home-page/home-page';
 import { SeriesPage } from './pages/series-page/series-page';
+import { SeriesListPage } from './pages/series-list-page/series-list-page';
 import { SettingsPage } from './pages/settings-page/settings-page';
 import { StatsPage } from './pages/stats-page/stats-page';
 import { RoutePath } from './routes';
@@ -77,6 +78,7 @@ export function App(): JSX.Element {
               <Route path={RoutePath.CALENDAR} element={<CalendarPage />} />
               <Route path={RoutePath.STATS} element={<StatsPage />} />
               <Route path={RoutePath.SETTINGS} element={<SettingsPage />} />
+              <Route path={RoutePath.SERIES_LIST} element={<SeriesListPage />} />
               <Route path={RoutePath.SERIES} element={<SeriesPage />} />
               {/* Catch-all route goes last */}
               <Route

@@ -12,6 +12,7 @@ import {
   IconCalendar,
   IconChartBar,
   IconHome,
+  IconLibrary,
   IconMoon,
   IconRefresh,
   IconSettings,
@@ -71,6 +72,7 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
   const tabs = [
     { link: RoutePath.HOME, label: 'Home', icon: IconHome },
     { link: RoutePath.BOOKS, label: 'Books', icon: IconBooks },
+    { link: RoutePath.SERIES_LIST, label: 'Series', icon: IconLibrary },
     { link: RoutePath.CALENDAR, label: 'Calendar', icon: IconCalendar },
     { link: RoutePath.STATS, label: 'Reading stats', icon: IconChartBar },
     { link: RoutePath.SETTINGS, label: 'Settings', icon: IconSettings },

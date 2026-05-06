@@ -160,20 +160,28 @@ export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }):
 // Attach per-book overrides (hidden/deleted/completed/reference_pages) from the local DB
 async function applyOverrides(books: any[], showHidden: boolean): Promise<any[]> {
   const overrides = await AbsOverridesRepository.getAll();
-  const overrideMap: Record<string, { hidden: boolean; deleted: boolean; completed: boolean; reference_pages: number | null }> = {};
+  const overrideMap: Record<string, { hidden: boolean; deleted: boolean; completed: boolean; reference_pages: number | null; series: string | null }> = {};
   for (const o of overrides) {
     overrideMap[o.abs_item_id] = {
       hidden: Boolean(o.hidden),
       deleted: Boolean(o.deleted),
       completed: Boolean(o.completed),
       reference_pages: o.reference_pages ?? null,
+      series: o.series ?? null,
     };
   }
 
   return books
     .map((b) => {
-      const o = overrideMap[b.id] ?? { hidden: false, deleted: false, completed: false, reference_pages: null };
-      return { ...b, hidden: o.hidden, deleted: o.deleted, completed: o.completed, reference_pages: o.reference_pages };
+      const o = overrideMap[b.id] ?? { hidden: false, deleted: false, completed: false, reference_pages: null, series: null };
+      return {
+        ...b,
+        hidden: o.hidden,
+        deleted: o.deleted,
+        completed: o.completed,
+        reference_pages: o.reference_pages,
+        series: o.series !== null ? o.series : b.series,
+      };
     })
     .filter((b) => !b.deleted && (showHidden || !b.hidden));
 }
@@ -245,19 +253,21 @@ router.get('/books/:id', async (req: Request<{ id: string }>, res: Response) => 
 
 router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params;
-  const { hidden, deleted, completed, reference_pages } = req.body as {
+  const { hidden, deleted, completed, reference_pages, series } = req.body as {
     hidden?: boolean;
     deleted?: boolean;
     completed?: boolean;
     reference_pages?: number | null;
+    series?: string | null;
   };
 
   try {
-    const update: Record<string, boolean | number | null> = {};
+    const update: Record<string, boolean | number | string | null> = {};
     if (hidden !== undefined) update.hidden = hidden;
     if (deleted !== undefined) update.deleted = deleted;
     if (completed !== undefined) update.completed = completed;
     if (reference_pages !== undefined) update.reference_pages = reference_pages;
+    if (series !== undefined) update.series = series;
 
     await AbsOverridesRepository.upsert(id, update);
     absCache.invalidate();

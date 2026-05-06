@@ -94,7 +94,7 @@ export function useAbsSessions() {
 
 export async function updateAbsBook(
   id: string,
-  data: { hidden?: boolean; deleted?: boolean; completed?: boolean; reference_pages?: number | null }
+  data: { hidden?: boolean; deleted?: boolean; completed?: boolean; reference_pages?: number | null; series?: string | null }
 ) {
   return fetchFromAPI<{ message: string }>(`audiobookshelf/books/${id}`, 'PATCH', data);
 }

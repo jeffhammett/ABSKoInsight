@@ -28,6 +28,10 @@ export async function completeBook(id: Book['id'], completed: boolean) {
   return fetchFromAPI<{ message: string }>(`books/${id}/complete`, 'PUT', { completed });
 }
 
+export async function updateBookSeries(id: Book['id'], series: string | null) {
+  return fetchFromAPI<{ message: string }>(`books/${id}/series`, 'PUT', { series });
+}
+
 export async function updateBookReferencePages(id: Book['id'], referencePages: number | null) {
   return fetchFromAPI<Book>(`books/${id}/reference_pages`, 'PUT', {
     reference_pages: referencePages,

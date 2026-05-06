@@ -16,8 +16,8 @@ export function SeriesPage(): JSX.Element {
   const seriesName = decodeURIComponent(name);
   const normalizedTarget = normalizeSeries(seriesName);
 
-  const { data: ebooks, isLoading: ebooksLoading } = useBooks({ showHidden: true });
-  const { data: absBooks, isLoading: absLoading } = useAbsBooks({ showHidden: true });
+  const { data: ebooks, isLoading: ebooksLoading } = useBooks();
+  const { data: absBooks, isLoading: absLoading } = useAbsBooks();
 
   const seriesEbooks = useMemo(
     () => (ebooks ?? []).filter((b) => normalizeSeries(b.series) === normalizedTarget),

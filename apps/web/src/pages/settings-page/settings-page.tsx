@@ -7,6 +7,7 @@ import {
   PasswordInput,
   Select,
   Stack,
+  Switch,
   Text,
   TextInput,
   Title,
@@ -15,10 +16,13 @@ import { notifications } from '@mantine/notifications';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { JSX, useEffect, useState } from 'react';
 import { mutate } from 'swr';
-import { verifyAbsConnection } from '../../api/audiobookshelf';
+import { AbsBook, updateAbsBook, useAbsBooks } from '../../api/audiobookshelf';
+import { hideBook, showBook, useBooks } from '../../api/books';
 import { saveSettings, useSettings } from '../../api/settings';
+import { verifyAbsConnection } from '../../api/audiobookshelf';
 import { verifyWebdavConnection } from '../../api/sync';
 import { formatRelativeDate } from '../../utils/dates';
+import { BookWithData } from '@koinsight/common/types';
 
 const WEBDAV_INTERVAL_OPTIONS = [
   { label: 'Disabled', value: '0' },
@@ -36,8 +40,55 @@ const ABS_INTERVAL_OPTIONS = [
   { label: 'Every 24 hours', value: '1440' },
 ];
 
+function HiddenBookRow({ book }: { book: BookWithData }) {
+  const [loading, setLoading] = useState(false);
+  const onToggle = async (hidden: boolean) => {
+    setLoading(true);
+    try {
+      if (hidden) await hideBook(book.id);
+      else await showBook(book.id);
+      await mutate((key) => Array.isArray(key) && key[0] === 'books', undefined, { revalidate: true });
+    } catch {
+      notifications.show({ title: 'Failed', message: 'Could not update book visibility.', color: 'red', position: 'top-center' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Flex justify="space-between" align="center" py="xs">
+      <Text size="sm">{book.title}</Text>
+      <Switch disabled={loading} label="Hidden" checked={book.soft_deleted} onChange={(e) => onToggle(e.target.checked)} />
+    </Flex>
+  );
+}
+
+function HiddenAbsBookRow({ book }: { book: AbsBook }) {
+  const [loading, setLoading] = useState(false);
+  const onToggle = async (hidden: boolean) => {
+    setLoading(true);
+    try {
+      await updateAbsBook(book.id, { hidden });
+      await mutate((key) => Array.isArray(key) && key[0] === 'abs-books', undefined, { revalidate: true });
+    } catch {
+      notifications.show({ title: 'Failed', message: 'Could not update book visibility.', color: 'red', position: 'top-center' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Flex justify="space-between" align="center" py="xs">
+      <Text size="sm">{book.title}</Text>
+      <Switch disabled={loading} label="Hidden" checked={book.hidden} onChange={(e) => onToggle(e.target.checked)} />
+    </Flex>
+  );
+}
+
 export function SettingsPage(): JSX.Element {
   const { data: settings, isLoading } = useSettings();
+  const { data: allEbooks = [] } = useBooks({ showHidden: true });
+  const { data: allAbsBooks = [] } = useAbsBooks({ showHidden: true });
+  const hiddenEbooks = allEbooks.filter((b) => b.soft_deleted);
+  const hiddenAbsBooks = allAbsBooks.filter((b) => b.hidden);
 
   const [webdavUrl, setWebdavUrl] = useState('');
   const [webdavUsername, setWebdavUsername] = useState('');
@@ -267,6 +318,28 @@ export function SettingsPage(): JSX.Element {
       <Button mt="xl" onClick={handleSave} loading={saving}>
         Save settings
       </Button>
+
+      <Divider my="xl" />
+
+      <Title order={3} mb="xs">
+        Hidden Books
+      </Title>
+      <Text c="dimmed" size="sm" mb="lg">
+        Books you have hidden from your library. Toggle to unhide.
+      </Text>
+
+      {hiddenEbooks.length === 0 && hiddenAbsBooks.length === 0 ? (
+        <Text size="sm" c="dimmed">No hidden books.</Text>
+      ) : (
+        <Stack gap={0} maw={480}>
+          {hiddenEbooks.map((book) => (
+            <HiddenBookRow key={`ebook-${book.id}`} book={book} />
+          ))}
+          {hiddenAbsBooks.map((book) => (
+            <HiddenAbsBookRow key={`abs-${book.id}`} book={book} />
+          ))}
+        </Stack>
+      )}
     </>
   );
 }

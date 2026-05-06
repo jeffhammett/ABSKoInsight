@@ -5,6 +5,7 @@ export enum RoutePath {
   BOOKS = '/books',
   BOOK = '/books/:id',
   ABS_BOOK = '/abs-books/:id',
+  SERIES_LIST = '/series',
   CALENDAR = '/calendar/',
   STATS = '/stats/',
   SETTINGS = '/settings',

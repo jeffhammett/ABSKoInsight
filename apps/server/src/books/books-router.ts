@@ -99,6 +99,19 @@ router.post('/:bookId/genres', getBookById, async (req: Request, res: Response) 
   }
 });
 
+router.put('/:bookId/series', getBookById, async (req: Request, res: Response) => {
+  const book = req.book!;
+  const { series } = req.body as { series?: string | null };
+
+  try {
+    await BooksRepository.update(book.id, { series: series || null });
+    res.status(200).json({ message: 'Series updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update series' });
+  }
+});
+
 /**
  * Updates a book's reference pages
  */
