@@ -22,15 +22,7 @@ import {
 import { EmptyState } from '../../components/empty-state/empty-state';
 import { getSeriesPath } from '../../routes';
 
-function normalizeSeries(name: string | null | undefined): string {
-  if (!name || name === 'N/A') return '';
-  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
-}
-
-function displaySeriesName(name: string | null | undefined): string {
-  if (!name || name === 'N/A') return '';
-  return name.replace(/\s+#\d+(\.\d+)?$/, '').trim();
-}
+import { displaySeriesName, normalizeSeries } from '../../utils/series';
 
 type SeriesEntry = {
   key: string;

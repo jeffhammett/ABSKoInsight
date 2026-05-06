@@ -29,6 +29,7 @@ import { AbsBook, AbsSession, useAbsBook, useAbsSessions } from '../../api/audio
 import { API_URL } from '../../api/api';
 import { formatRelativeDate, formatSecondsToHumanReadable } from '../../utils/dates';
 import { getSeriesPath } from '../../routes';
+import { displaySeriesName } from '../../utils/series';
 import { AbsBookPageCalendar } from './abs-book-page-calendar';
 import { AbsBookPageManage } from './abs-book-page-manage';
 
@@ -131,7 +132,7 @@ function AbsBookInfo({
               <IconBooks stroke={1.5} size={16} />
             </Tooltip>
             <NavLink
-              to={getSeriesPath(book.series)}
+              to={getSeriesPath(displaySeriesName(book.series))}
               className={style.InfoText}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >

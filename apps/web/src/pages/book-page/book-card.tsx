@@ -25,6 +25,7 @@ import { NavLink } from 'react-router';
 import { API_URL } from '../../api/api';
 import { getSeriesPath } from '../../routes';
 import { formatRelativeDate } from '../../utils/dates';
+import { displaySeriesName } from '../../utils/series';
 import { BookPageCoverSelector } from './components/book-page-cover-selector';
 
 import style from './book-card.module.css';
@@ -116,7 +117,7 @@ export function BookCard({ book }: BookCardProps): JSX.Element {
               <IconBooks stroke={1.5} size={16} />
             </Tooltip>
             <NavLink
-              to={getSeriesPath(book.series)}
+              to={getSeriesPath(displaySeriesName(book.series))}
               className={style.InfoText}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >

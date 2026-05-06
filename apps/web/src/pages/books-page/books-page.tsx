@@ -42,15 +42,7 @@ import style from './books-page.module.css';
 
 type SortKey = 'title' | 'authors' | 'totalReadTime' | 'lastActivityMs' | 'progressPct';
 
-function normalizeSeries(name: string | null | undefined): string {
-  if (!name || name === 'N/A') return '';
-  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
-}
-
-function displaySeriesName(name: string | null | undefined): string {
-  if (!name || name === 'N/A') return '';
-  return name.replace(/\s+#\d+(\.\d+)?$/, '').trim();
-}
+import { displaySeriesName, normalizeSeries } from '../../utils/series';
 
 function ebookToUnified(book: BookWithData): UnifiedBook {
   const rawPct = book.total_pages > 0 ? (book.unique_read_pages / book.total_pages) * 100 : 0;

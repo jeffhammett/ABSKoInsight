@@ -6,15 +6,7 @@ import { useBooks } from '../../api/books';
 import { API_URL } from '../../api/api';
 import { getAbsBookPath, getBookPath } from '../../routes';
 
-function normalizeSeries(name: string | null | undefined): string {
-  if (!name || name === 'N/A') return '';
-  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
-}
-
-function getSeriesSequence(series: string | null | undefined): number {
-  const match = series?.match(/\s+#(\d+(?:\.\d+)?)$/);
-  return match ? parseFloat(match[1]) : Infinity;
-}
+import { normalizeSeries, getSeriesSequence } from '../../utils/series';
 
 export function SeriesPage(): JSX.Element {
   const { name } = useParams() as { name: string };
@@ -102,6 +94,7 @@ export function SeriesPage(): JSX.Element {
                           <Anchor to={getBookPath(book.id)} component={NavLink} fw={700} size="sm">
                             {book.title}
                           </Anchor>
+                          {book.series && <Text size="xs" c="dimmed">{book.series}</Text>}
                           <Text size="xs" c="dimmed">{book.authors}</Text>
                         </Stack>
                       </Flex>
@@ -155,6 +148,7 @@ export function SeriesPage(): JSX.Element {
                           <Anchor to={getAbsBookPath(book.id)} component={NavLink} fw={700} size="sm">
                             {book.title}
                           </Anchor>
+                          {book.series && <Text size="xs" c="dimmed">{book.series}</Text>}
                           <Text size="xs" c="dimmed">{book.authors}</Text>
                         </Stack>
                       </Flex>
