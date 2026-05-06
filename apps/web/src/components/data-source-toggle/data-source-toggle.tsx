@@ -15,8 +15,8 @@ export function DataSourceToggle({ value, onChange }: DataSourceToggleProps): JS
       value={value}
       onChange={(v) => onChange(v as DataSource)}
       data={[
-        { value: 'ebook', label: 'E-books' },
         { value: 'both', label: 'Both' },
+        { value: 'ebook', label: 'E-books' },
         { value: 'audiobook', label: 'Audiobooks' },
       ]}
       size="sm"
@@ -27,6 +27,6 @@ export function DataSourceToggle({ value, onChange }: DataSourceToggleProps): JS
 export function useDataSource(pageKey: string) {
   return useLocalStorage<DataSource>({
     key: `koinsight-datasource-${pageKey}`,
-    defaultValue: 'ebook',
+    defaultValue: 'both',
   });
 }

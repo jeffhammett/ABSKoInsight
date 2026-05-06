@@ -1,13 +1,14 @@
 import { PageStat } from '@koinsight/common/types';
 import { Book } from '@koinsight/common/types/book';
-import { Anchor, Badge, Flex, Loader, Title } from '@mantine/core';
-import { IconClock, IconHeadphones } from '@tabler/icons-react';
+import { Anchor, Flex, Loader, Title } from '@mantine/core';
+import { IconBook, IconClock, IconHeadphones } from '@tabler/icons-react';
 import { startOfDay } from 'date-fns/startOfDay';
 import { sum, uniq } from 'ramda';
 import { JSX, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
 import { AbsSession, useAbsSessions } from '../api/audiobookshelf';
 import { useBooks } from '../api/books';
+import { useSettings } from '../api/settings';
 import { usePageStats } from '../api/use-page-stats';
 import { Calendar, CalendarEvent } from '../components/calendar/calendar';
 import {
@@ -22,12 +23,6 @@ type DayData = {
   listeningEvents: AbsSession[];
 };
 
-function parseDateStr(dateStr: string): Date {
-  // dateStr is "YYYY-MM-DD" — parse as local midnight to avoid timezone drift
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  return new Date(y, mo - 1, d);
-}
-
 export function CalendarPage(): JSX.Element {
   const [dataSource, setDataSource] = useDataSource('calendar');
   const { data: books, isLoading } = useBooks();
@@ -36,6 +31,7 @@ export function CalendarPage(): JSX.Element {
     isLoading: eventsLoading,
   } = usePageStats();
   const { data: absSessions, isLoading: absLoading } = useAbsSessions();
+  const { data: settings } = useSettings();
 
   const showEbooks = dataSource === 'ebook' || dataSource === 'both';
   const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
@@ -60,7 +56,7 @@ export function CalendarPage(): JSX.Element {
 
     if (showAudiobooks && absSessions) {
       for (const session of absSessions) {
-        const date = startOfDay(parseDateStr(session.date));
+        const date = startOfDay(new Date(session.startedAt));
         const key = date.toISOString();
         ensureDay(date, key).listeningEvents.push(session);
       }
@@ -93,6 +89,7 @@ export function CalendarPage(): JSX.Element {
           );
           elements.push(
             <div key={`ebook-${book.id}`}>
+              <IconBook size={14} />{' '}
               <Anchor component={Link} to={getBookPath(book.id)}>
                 {book.title}
               </Anchor>
@@ -104,22 +101,34 @@ export function CalendarPage(): JSX.Element {
         }
       }
 
-      // Listening events grouped by title
+      // Listening events grouped by libraryItemId
       if (data.listeningEvents.length > 0) {
-        const byTitle = data.listeningEvents.reduce<Record<string, number>>((acc, s) => {
-          acc[s.displayTitle] = (acc[s.displayTitle] ?? 0) + s.timeListening;
+        const byItem = data.listeningEvents.reduce<
+          Record<string, { title: string; seconds: number }>
+        >((acc, s) => {
+          if (!acc[s.libraryItemId]) {
+            acc[s.libraryItemId] = { title: s.displayTitle, seconds: 0 };
+          }
+          acc[s.libraryItemId].seconds += s.timeListening;
           return acc;
         }, {});
 
-        for (const [title, seconds] of Object.entries(byTitle)) {
+        const absBase = settings?.abs_url?.replace(/\/$/, '') ?? '';
+
+        for (const [itemId, { title, seconds }] of Object.entries(byItem)) {
+          const href = absBase ? `${absBase}/item/${itemId}` : undefined;
           elements.push(
-            <div key={`abs-${title}`}>
-              <Badge size="xs" color="violet" variant="light" mr={4}>
-                audio
-              </Badge>
-              {title}
+            <div key={`abs-${itemId}`}>
+              <IconHeadphones size={14} />{' '}
+              {href ? (
+                <Anchor href={href} target="_blank" rel="noreferrer">
+                  {title}
+                </Anchor>
+              ) : (
+                title
+              )}
               <br />
-              <IconHeadphones size={14} /> {shortDuration(getDuration(seconds))}
+              <IconClock size={14} /> {shortDuration(getDuration(seconds))}
               <br />
             </div>
           );
@@ -128,7 +137,7 @@ export function CalendarPage(): JSX.Element {
 
       return elements;
     },
-    [getBookByMd5]
+    [getBookByMd5, settings]
   );
 
   const loading = isLoading || (showEbooks && eventsLoading) || (showAudiobooks && absLoading);

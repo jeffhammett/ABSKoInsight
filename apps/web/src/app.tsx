@@ -19,6 +19,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import style from './app.module.css';
 import { Logo } from './components/logo/logo';
 import { Navbar } from './components/navbar/navbar';
+import { AbsBookPage } from './pages/abs-book-page/abs-book-page';
 import { BookPage } from './pages/book-page/book-page';
 import { BooksPage } from './pages/books-page/books-page';
 import { CalendarPage } from './pages/calendar-page';
@@ -69,6 +70,7 @@ export function App(): JSX.Element {
               <Route index element={<Navigate to={RoutePath.BOOKS} />} />
               <Route path={RoutePath.BOOKS} element={<BooksPage />} />
               <Route path={RoutePath.BOOK} element={<BookPage />} />
+              <Route path={RoutePath.ABS_BOOK} element={<AbsBookPage />} />
               <Route path={RoutePath.CALENDAR} element={<CalendarPage />} />
               <Route path={RoutePath.STATS} element={<StatsPage />} />
               <Route path={RoutePath.SETTINGS} element={<SettingsPage />} />

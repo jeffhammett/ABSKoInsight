@@ -128,4 +128,33 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
+router.get('/cover/:itemId', async (req, res) => {
+  const config = await getConfig();
+  if (!config) {
+    res.status(400).end();
+    return;
+  }
+
+  try {
+    const base = config.absUrl.replace(/\/$/, '');
+    const response = await fetch(`${base}/api/items/${req.params.itemId}/cover`, {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    });
+
+    if (!response.ok) {
+      res.status(response.status).end();
+      return;
+    }
+
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err: any) {
+    console.error('ABS cover proxy error:', err);
+    res.status(502).end();
+  }
+});
+
 export { router as absRouter };

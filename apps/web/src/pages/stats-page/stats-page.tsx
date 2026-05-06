@@ -10,7 +10,7 @@ import {
   useMantineTheme,
 } from '@mantine/core';
 import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/icons-react';
-import { format, parse } from 'date-fns';
+import { format, parse, startOfDay, subDays } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
 import { AbsStats, useAbsStats } from '../../api/audiobookshelf';
@@ -24,9 +24,9 @@ import {
 import { ReadingCalendar } from '../../components/statistics/reading-calendar';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
+import { AbsWeekStats } from './abs-week-stats';
 import { WeekStats } from './week-stats';
 
-// Day order for sorting (ABS dayOfWeek keys are full day name strings like "Monday")
 const DAY_ORDER: Record<string, number> = {
   Sunday: 0,
   Monday: 1,
@@ -40,7 +40,6 @@ const DAY_ORDER: Record<string, number> = {
 function absMonthlyToMap(absDays: Record<string, number>): Record<string, number> {
   const monthly: Record<string, number> = {};
   for (const [dateStr, seconds] of Object.entries(absDays)) {
-    // dateStr is "YYYY-MM-DD"
     const [y, mo, d] = dateStr.split('-').map(Number);
     const monthKey = format(new Date(y, mo - 1, d), 'MMMM yyyy');
     monthly[monthKey] = (monthly[monthKey] ?? 0) + seconds;
@@ -74,7 +73,6 @@ function mergeWeekdays(
   koDow: PerDayOfTheWeek[],
   absDow: Record<string, number>
 ): Array<{ name: string; ebook: number; audiobook: number; day: number }> {
-  // ABS dayOfWeek keys are full day name strings like "Monday" (same format as KoReader)
   const result: Array<{ name: string; ebook: number; audiobook: number; day: number }> =
     koDow.map((d) => ({
       name: d.name,
@@ -142,6 +140,23 @@ export function StatsPage(): JSX.Element {
     [perDayOfTheWeek, absStats]
   );
 
+  const absLast7DaysTime = useMemo(() => {
+    if (!absStats?.days) return 0;
+    const today = startOfDay(new Date());
+    const sevenDaysAgo = subDays(today, 6);
+    return Object.entries(absStats.days).reduce((acc, [dateStr, seconds]) => {
+      const [y, mo, d] = dateStr.split('-').map(Number);
+      const dayDate = new Date(y, mo - 1, d);
+      if (dayDate >= sevenDaysAgo && dayDate <= today) return acc + seconds;
+      return acc;
+    }, 0);
+  }, [absStats]);
+
+  const absLongestDay = useMemo(() => {
+    if (!absStats?.days) return 0;
+    return Math.max(0, ...Object.values(absStats.days));
+  }, [absStats]);
+
   const isLoading =
     (showEbooks && (booksLoading || statsLoading)) || (showAudiobooks && absLoading);
 
@@ -155,7 +170,12 @@ export function StatsPage(): JSX.Element {
 
   const totalListeningTime = absStats?.totalTime ?? 0;
   const combinedTotal = (showEbooks ? totalReadingTime : 0) + (showAudiobooks ? totalListeningTime : 0);
-  const last7Days = showEbooks ? last7DaysReadTime : 0;
+
+  const last7Days =
+    (showEbooks ? last7DaysReadTime : 0) + (showAudiobooks ? absLast7DaysTime : 0);
+
+  const activityVerb =
+    dataSource === 'audiobook' ? 'listened' : dataSource === 'both' ? 'read or listened' : 'read';
 
   return (
     <>
@@ -177,9 +197,9 @@ export function StatsPage(): JSX.Element {
         fw={900}
       >
         {last7Days > 0 ? (
-          <>You read for {formatSecondsToHumanReadable(last7Days)} this week. Keep it up!</>
+          <>You {activityVerb} for {formatSecondsToHumanReadable(last7Days)} this week. Keep it up!</>
         ) : (
-          <>You haven't read this week yet. No better time to start!</>
+          <>You haven't {activityVerb} this week yet. No better time to start!</>
         )}
       </Text>
 
@@ -216,9 +236,9 @@ export function StatsPage(): JSX.Element {
                 icon: IconHeadphones,
               },
               {
-                label: 'Audiobooks in library',
-                value: absStats?.booksCount ?? 0,
-                icon: IconHeadphones,
+                label: 'Longest time listening in a day',
+                value: formatSecondsToHumanReadable(absLongestDay),
+                icon: IconMaximize,
               },
             ]}
           />
@@ -248,7 +268,7 @@ export function StatsPage(): JSX.Element {
         )}
       </Box>
 
-      {showEbooks && (
+      {dataSource === 'ebook' && (
         <>
           <Title mb="xl" order={3}>
             Reading history
@@ -256,15 +276,36 @@ export function StatsPage(): JSX.Element {
           <Box mb="xl">
             <ReadingCalendar />
           </Box>
-        </>
-      )}
-
-      {dataSource === 'ebook' && (
-        <>
           <Title mt="xl" mb={4} order={3}>
             Weekly stats
           </Title>
           <WeekStats stats={stats} booksByMd5={booksByMd5} />
+        </>
+      )}
+
+      {dataSource === 'audiobook' && (
+        <>
+          <Title mb="xl" order={3}>
+            Listening history
+          </Title>
+          <Box mb="xl">
+            <ReadingCalendar showEbookData={false} absData={absStats?.days} />
+          </Box>
+          <Title mt="xl" mb={4} order={3}>
+            Weekly stats
+          </Title>
+          <AbsWeekStats />
+        </>
+      )}
+
+      {dataSource === 'both' && (
+        <>
+          <Title mb="xl" order={3}>
+            Reading history
+          </Title>
+          <Box mb="xl">
+            <ReadingCalendar absData={absStats?.days} />
+          </Box>
         </>
       )}
 
@@ -333,7 +374,7 @@ export function StatsPage(): JSX.Element {
             valueFormatter={(value) => formatSecondsToHumanReadable(value)}
             series={[
               {
-                name: 'duration',
+                name: dataSource === 'ebook' ? 'duration' : 'duration',
                 label: 'Time',
                 color: colorScheme === 'dark' ? 'violet.7' : 'violet.1',
               },
