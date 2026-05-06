@@ -21,8 +21,11 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 import { JSX, useState } from 'react';
+import { NavLink } from 'react-router';
 import { API_URL } from '../../api/api';
+import { getSeriesPath } from '../../routes';
 import { formatRelativeDate } from '../../utils/dates';
+import { displaySeriesName } from '../../utils/series';
 import { BookPageCoverSelector } from './components/book-page-cover-selector';
 
 import style from './book-card.module.css';
@@ -108,12 +111,20 @@ export function BookCard({ book }: BookCardProps): JSX.Element {
 
         <Title fw="800">{book.title}</Title>
 
-        <Flex align="center" gap={8} mt="sm">
-          <Tooltip label="Series" position="top" withArrow>
-            <IconBooks stroke={1.5} size={16} />
-          </Tooltip>
-          <span className={style.InfoText}>{book.series}</span>
-        </Flex>
+        {book.series && (
+          <Flex align="center" gap={8} mt="sm">
+            <Tooltip label="Series" position="top" withArrow>
+              <IconBooks stroke={1.5} size={16} />
+            </Tooltip>
+            <NavLink
+              to={getSeriesPath(displaySeriesName(book.series))}
+              className={style.InfoText}
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
+              {book.series}
+            </NavLink>
+          </Flex>
+        )}
 
         <Flex align="center" gap={8} mt={5}>
           <Tooltip label="Last opened" position="top" withArrow>

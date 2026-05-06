@@ -113,10 +113,10 @@ export function WeekStats({
       <Popover position="bottom-start">
         <Popover.Target>
           <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }}>
-            <Text c="violet.4" tt="uppercase" size="sm" fw={600}>
+            <Text c="koinsight.4" tt="uppercase" size="sm" fw={600}>
               {formatDate(weekStart, 'dd MMM')} - {formatDate(weekEnd, 'dd MMM')}
             </Text>
-            <IconCaretDownFilled size={16} color={colors.violet[6]} />
+            <IconCaretDownFilled size={16} color={colors.koinsight[6]} />
           </Flex>
         </Popover.Target>
         <Popover.Dropdown>
@@ -169,7 +169,7 @@ export function WeekStats({
           {
             name: 'duration',
             label: 'Reading time',
-            color: colorScheme === 'dark' ? 'violet.3' : 'violet.7',
+            color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
           },
         ]}
       />

@@ -11,3 +11,17 @@ export async function triggerWebdavSync(): Promise<{ message: string; booksCount
   }
   return response.json();
 }
+
+export async function verifyWebdavConnection(params: {
+  webdav_url?: string;
+  webdav_username?: string;
+  webdav_password?: string;
+  webdav_db_path?: string;
+}): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_URL}/sync/verify-webdav`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return response.json();
+}

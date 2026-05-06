@@ -6,9 +6,6 @@ import { StatsService } from './stats-service';
 
 const router = Router();
 
-/**
- * Get all stats
- */
 router.get('/', async (_: Request, res: Response) => {
   const books = await BooksRepository.getAllWithData();
   const totalPagesRead = StatsService.totalPagesRead(books);
@@ -35,9 +32,6 @@ router.get('/', async (_: Request, res: Response) => {
   res.status(200).json(response);
 });
 
-/**
- * Get stats by book md5
- */
 router.get('/:book_md5', async (req: Request<{ book_md5: string }>, res: Response) => {
   const book_md5 = req.params.book_md5;
   const book = await StatsRepository.getByBookMD5(book_md5);

@@ -22,6 +22,7 @@ export type UnifiedBook = {
   totalPages: string;
   totalReadTime: number;
   lastActivityMs: number;
+  completed?: boolean;
 };
 
 type BooksTableProps = {

@@ -28,9 +28,12 @@ import { useParams } from 'react-router';
 import { AbsBook, AbsSession, useAbsBook, useAbsSessions } from '../../api/audiobookshelf';
 import { API_URL } from '../../api/api';
 import { formatRelativeDate, formatSecondsToHumanReadable } from '../../utils/dates';
+import { getSeriesPath } from '../../routes';
+import { displaySeriesName } from '../../utils/series';
 import { AbsBookPageCalendar } from './abs-book-page-calendar';
 import { AbsBookPageManage } from './abs-book-page-manage';
 
+import { NavLink } from 'react-router';
 import style from '../book-page/book-card.module.css';
 
 export function AbsBookPage(): JSX.Element {
@@ -128,7 +131,13 @@ function AbsBookInfo({
             <Tooltip label="Series" position="top" withArrow>
               <IconBooks stroke={1.5} size={16} />
             </Tooltip>
-            <span className={style.InfoText}>{book.series}</span>
+            <NavLink
+              to={getSeriesPath(displaySeriesName(book.series))}
+              className={style.InfoText}
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
+              {book.series}
+            </NavLink>
           </Flex>
         )}
 
@@ -152,7 +161,7 @@ function AbsStatsCard({
   book: AbsBook;
   sessions: AbsSession[];
 }): JSX.Element {
-  const progressPct = Math.round(book.progress * 100);
+  const progressPct = book.completed ? 100 : Math.round(book.progress * 100);
 
   const totalListeningTime = sum(sessions.map((s) => s.timeListening));
 

@@ -42,6 +42,24 @@ router.delete('/:bookId', getBookById, async (req: Request, res: Response) => {
   }
 });
 
+router.put('/:bookId/complete', getBookById, async (req: Request, res: Response) => {
+  const book = req.book!;
+  const { completed } = req.body;
+
+  if (completed === undefined) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+
+  try {
+    await BooksRepository.update(book.id, { completed_override: completed });
+    res.status(200).json({ message: `Book marked as ${completed ? 'completed' : 'not completed'}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update book completion' });
+  }
+});
+
 router.put('/:bookId/hide', getBookById, async (req: Request, res: Response) => {
   const book = req.book!;
   const hidden = req.body.hidden;
@@ -78,6 +96,19 @@ router.post('/:bookId/genres', getBookById, async (req: Request, res: Response) 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to add genre' });
+  }
+});
+
+router.put('/:bookId/series', getBookById, async (req: Request, res: Response) => {
+  const book = req.book!;
+  const { series } = req.body as { series?: string | null };
+
+  try {
+    await BooksRepository.update(book.id, { series: series || null });
+    res.status(200).json({ message: 'Series updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update series' });
   }
 });
 

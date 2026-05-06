@@ -1,4 +1,7 @@
 import { AbsBook, updateAbsBook, uploadAbsBookCover } from '../../api/audiobookshelf';
+import { AbsBookComplete } from './abs-book-page-complete';
+import { AbsBookReferencePages } from './abs-book-reference-pages';
+import { AbsBookSeries } from './abs-book-series';
 import { Button, FileInput, Flex, Switch, Text, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
@@ -157,6 +160,12 @@ export function AbsBookPageManage({
           </Flex>
         </form>
       </div>
+
+      <AbsBookSeries book={book} />
+
+      <AbsBookReferencePages book={book} />
+
+      <AbsBookComplete book={book} />
 
       {/* Hide toggle */}
       <div>

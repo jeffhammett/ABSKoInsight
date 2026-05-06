@@ -11,6 +11,8 @@ import {
   IconBooks,
   IconCalendar,
   IconChartBar,
+  IconHome,
+  IconLibrary,
   IconMoon,
   IconRefresh,
   IconSettings,
@@ -19,6 +21,7 @@ import {
 import { JSX, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { mutate } from 'swr';
+import { refreshAbsCache } from '../../api/audiobookshelf';
 import { triggerWebdavSync } from '../../api/sync';
 import { RoutePath } from '../../routes';
 import { Logo } from '../logo/logo';
@@ -39,11 +42,18 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const result = await triggerWebdavSync();
+      const [result] = await Promise.allSettled([
+        triggerWebdavSync(),
+        refreshAbsCache(),
+      ]);
       await mutate(() => true, undefined, { revalidate: true });
+      const msg =
+        result.status === 'fulfilled'
+          ? result.value.message
+          : 'WebDAV sync skipped (not configured)';
       notifications.show({
         title: 'Sync complete',
-        message: result.message,
+        message: msg,
         color: 'green',
         position: 'top-center',
       });
@@ -60,7 +70,9 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }): JSX.Element
   };
 
   const tabs = [
+    { link: RoutePath.HOME, label: 'Home', icon: IconHome },
     { link: RoutePath.BOOKS, label: 'Books', icon: IconBooks },
+    { link: RoutePath.SERIES_LIST, label: 'Series', icon: IconLibrary },
     { link: RoutePath.CALENDAR, label: 'Calendar', icon: IconCalendar },
     { link: RoutePath.STATS, label: 'Reading stats', icon: IconChartBar },
     { link: RoutePath.SETTINGS, label: 'Settings', icon: IconSettings },

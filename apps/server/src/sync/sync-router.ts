@@ -1,9 +1,5 @@
-import { unlinkSync, writeFileSync } from 'fs';
-import path from 'path';
 import { Router } from 'express';
-import { appConfig } from '../config';
-import { SettingsRepository } from '../settings/settings-repository';
-import { UploadService } from '../upload/upload-service';
+import { SyncService } from './sync-service';
 
 const router = Router();
 
@@ -15,60 +11,51 @@ router.post('/webdav', async (_req, res) => {
     return;
   }
   syncInProgress = true;
-  const settings = await SettingsRepository.get();
+  try {
+    const result = await SyncService.syncWebdav();
+    res.json(result);
+  } catch (err: any) {
+    console.error('WebDAV sync error:', err);
+    res.status(502).json({ error: err?.message ?? 'WebDAV sync failed' });
+  } finally {
+    syncInProgress = false;
+  }
+});
 
-  if (!settings.webdav_url || !settings.webdav_db_path) {
-    res.status(400).json({ error: 'WebDAV URL and database file path must be configured in Settings' });
+// Verify WebDAV connectivity without persisting credentials
+router.post('/verify-webdav', async (req, res) => {
+  const { webdav_url, webdav_username, webdav_password, webdav_db_path } = req.body as {
+    webdav_url?: string;
+    webdav_username?: string;
+    webdav_password?: string;
+    webdav_db_path?: string;
+  };
+
+  if (!webdav_url || !webdav_db_path) {
+    res.json({ ok: false, message: 'WebDAV URL and database path are required' });
     return;
   }
 
-  const baseUrl = settings.webdav_url.replace(/\/$/, '');
-  const filePath = settings.webdav_db_path.startsWith('/')
-    ? settings.webdav_db_path
-    : `/${settings.webdav_db_path}`;
+  const baseUrl = webdav_url.replace(/\/$/, '');
+  const filePath = webdav_db_path.startsWith('/') ? webdav_db_path : `/${webdav_db_path}`;
   const url = `${baseUrl}${filePath}`;
 
   const headers: Record<string, string> = {};
-  if (settings.webdav_username && settings.webdav_password) {
-    const encoded = Buffer.from(
-      `${settings.webdav_username}:${settings.webdav_password}`
-    ).toString('base64');
+  if (webdav_username && webdav_password) {
+    const encoded = Buffer.from(`${webdav_username}:${webdav_password}`).toString('base64');
     headers['Authorization'] = `Basic ${encoded}`;
   }
 
-  let tempPath: string | null = null;
   try {
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      res
-        .status(502)
-        .json({ error: `WebDAV request failed: ${response.status} ${response.statusText}` });
-      return;
-    }
-
-    const buffer = await response.arrayBuffer();
-    tempPath = path.resolve(appConfig.dataPath, `webdav_sync_${Date.now()}.sqlite3`);
-    writeFileSync(tempPath, Buffer.from(buffer));
-
-    let koDb;
-    try {
-      koDb = UploadService.openStatisticsDbFile(tempPath);
-      const { newBooks, newPageStats } = UploadService.extractDataFromStatisticsDb(koDb);
-      await UploadService.uploadStatisticData(newBooks, newPageStats);
-      res.json({ message: 'WebDAV sync completed successfully', booksCount: newBooks.length });
-    } finally {
-      koDb?.close();
+    const response = await fetch(url, { method: 'HEAD', headers });
+    if (response.ok) {
+      const filename = webdav_db_path.split('/').pop() ?? webdav_db_path;
+      res.json({ ok: true, message: `Connection successful — found ${filename}` });
+    } else {
+      res.json({ ok: false, message: `Server returned ${response.status} ${response.statusText}` });
     }
   } catch (err: any) {
-    console.error('WebDAV sync error:', err);
-    res.status(500).json({ error: err?.message ?? 'WebDAV sync failed' });
-  } finally {
-    syncInProgress = false;
-    if (tempPath) {
-      try {
-        unlinkSync(tempPath);
-      } catch {}
-    }
+    res.json({ ok: false, message: err?.message ?? 'Connection failed' });
   }
 });
 

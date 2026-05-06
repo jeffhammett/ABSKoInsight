@@ -10,7 +10,7 @@ type StatisticsProps = {
 
 export function Statistics({ data }: StatisticsProps): JSX.Element {
   return (
-    <Group gap="md" className={style.statistics}>
+    <Group gap="md" wrap="nowrap" className={style.statistics}>
       {data.map((stat) => (
         <Statistic key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
       ))}

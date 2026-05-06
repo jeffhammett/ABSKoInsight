@@ -10,7 +10,7 @@ import { AbsOverridesRepository } from './abs-overrides-repository';
 const router = Router();
 
 // ---------------------------------------------------------------------------
-// Simple TTL cache (fix #2)
+// Simple TTL cache
 // ---------------------------------------------------------------------------
 class AbsCache {
   private store = new Map<string, { data: unknown; expiresAt: number }>();
@@ -33,7 +33,7 @@ class AbsCache {
   }
 }
 
-const absCache = new AbsCache();
+export const absCache = new AbsCache();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,22 +52,26 @@ async function absRequest<T>(absUrl: string, apiKey: string, reqPath: string): P
   return response.json() as Promise<T>;
 }
 
-async function getConfig() {
+export async function getConfig() {
   const settings = await SettingsRepository.get();
   if (!settings.abs_url || !settings.abs_api_key) return null;
   return { absUrl: settings.abs_url, apiKey: settings.abs_api_key };
 }
 
-// Fetch all sessions with pagination, up to 20,000 (fix #3)
-async function fetchAllSessions(absUrl: string, apiKey: string): Promise<any[]> {
+// Fetch all sessions with pagination, up to 20,000
+export async function fetchAllSessions(
+  absUrl: string,
+  apiKey: string
+): Promise<{ sessions: any[]; truncated: boolean }> {
   const cacheKey = `sessions:${absUrl}`;
-  const cached = absCache.get<any[]>(cacheKey);
+  const cached = absCache.get<{ sessions: any[]; truncated: boolean }>(cacheKey);
   if (cached) return cached;
 
   const all: any[] = [];
   let page = 0;
   const itemsPerPage = 1000;
   const maxPages = 20;
+  let truncated = false;
 
   while (page < maxPages) {
     const data = await absRequest<{ sessions?: any[] }>(
@@ -79,29 +83,31 @@ async function fetchAllSessions(absUrl: string, apiKey: string): Promise<any[]> 
     all.push(...sessions);
     if (sessions.length < itemsPerPage) break;
     page++;
+    if (page >= maxPages) {
+      truncated = true;
+      break;
+    }
   }
 
-  absCache.set(cacheKey, all);
-  return all;
+  const result = { sessions: all, truncated };
+  absCache.set(cacheKey, result);
+  return result;
 }
 
-// Fetch and transform all books from ABS (cached, parallelised - fixes #1, #2)
-async function fetchAbsBooks(config: {
-  absUrl: string;
-  apiKey: string;
-}): Promise<any[]> {
+// Fetch and transform all books from ABS (cached, parallelised)
+export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }): Promise<any[]> {
   const cacheKey = `books:${config.absUrl}`;
   const cached = absCache.get<any[]>(cacheKey);
   if (cached) return cached;
 
-  // Fire independent requests in parallel
-  const [libData, me, allSessions] = await Promise.all([
+  const [libData, me, sessionsResult] = await Promise.all([
     absRequest<{ libraries: any[] }>(config.absUrl, config.apiKey, '/api/libraries'),
     absRequest<{ mediaProgress?: any[] }>(config.absUrl, config.apiKey, '/api/me'),
     fetchAllSessions(config.absUrl, config.apiKey),
   ]);
 
-  // Fetch per-library items in parallel
+  const { sessions: allSessions } = sessionsResult;
+
   const bookLibraries = (libData.libraries ?? []).filter(
     (lib: any) => lib.mediaType === 'book'
   );
@@ -116,7 +122,6 @@ async function fetchAbsBooks(config: {
   );
   const allItems = itemResults.flatMap((d) => d.results ?? []);
 
-  // Build lookup maps
   const progressMap: Record<string, any> = {};
   for (const p of me.mediaProgress ?? []) {
     progressMap[p.libraryItemId] = p;
@@ -152,26 +157,36 @@ async function fetchAbsBooks(config: {
   return books;
 }
 
-// Attach per-book overrides (hidden/deleted) from the local DB
-async function applyOverrides(
-  books: any[],
-  showHidden: boolean
-): Promise<any[]> {
+// Attach per-book overrides (hidden/deleted/completed/reference_pages) from the local DB
+async function applyOverrides(books: any[], showHidden: boolean): Promise<any[]> {
   const overrides = await AbsOverridesRepository.getAll();
-  const overrideMap: Record<string, { hidden: boolean; deleted: boolean }> = {};
+  const overrideMap: Record<string, { hidden: boolean; deleted: boolean; completed: boolean; reference_pages: number | null; series: string | null }> = {};
   for (const o of overrides) {
-    overrideMap[o.abs_item_id] = { hidden: Boolean(o.hidden), deleted: Boolean(o.deleted) };
+    overrideMap[o.abs_item_id] = {
+      hidden: Boolean(o.hidden),
+      deleted: Boolean(o.deleted),
+      completed: Boolean(o.completed),
+      reference_pages: o.reference_pages ?? null,
+      series: o.series ?? null,
+    };
   }
 
   return books
     .map((b) => {
-      const o = overrideMap[b.id] ?? { hidden: false, deleted: false };
-      return { ...b, hidden: o.hidden, deleted: o.deleted };
+      const o = overrideMap[b.id] ?? { hidden: false, deleted: false, completed: false, reference_pages: null, series: null };
+      return {
+        ...b,
+        hidden: o.hidden,
+        deleted: o.deleted,
+        completed: o.completed,
+        reference_pages: o.reference_pages,
+        series: o.series !== null ? o.series : b.series,
+      };
     })
     .filter((b) => !b.deleted && (showHidden || !b.hidden));
 }
 
-// Custom cover helpers (fix #5 — existsSync per extension instead of readdir)
+// Custom cover helpers
 const COVER_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'];
 
 function getCustomCoverPath(itemId: string): string | null {
@@ -181,6 +196,18 @@ function getCustomCoverPath(itemId: string): string | null {
     if (existsSync(p)) return p;
   }
   return null;
+}
+
+// Export for use by scheduler
+export async function absRefresh(): Promise<void> {
+  const config = await getConfig();
+  if (!config) return;
+  absCache.invalidate();
+  await Promise.all([
+    fetchAbsBooks(config),
+    fetchAllSessions(config.absUrl, config.apiKey),
+  ]);
+  await SettingsRepository.update({ abs_last_synced_at: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +230,6 @@ router.get('/books', async (req, res) => {
   }
 });
 
-// Single book endpoint (fix #9)
 router.get('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
   const config = await getConfig();
   if (!config) {
@@ -227,15 +253,24 @@ router.get('/books/:id', async (req: Request<{ id: string }>, res: Response) => 
 
 router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params;
-  const { hidden, deleted } = req.body as { hidden?: boolean; deleted?: boolean };
+  const { hidden, deleted, completed, reference_pages, series } = req.body as {
+    hidden?: boolean;
+    deleted?: boolean;
+    completed?: boolean;
+    reference_pages?: number | null;
+    series?: string | null;
+  };
 
   try {
-    const update: Record<string, boolean> = {};
+    const update: Record<string, boolean | number | string | null> = {};
     if (hidden !== undefined) update.hidden = hidden;
     if (deleted !== undefined) update.deleted = deleted;
+    if (completed !== undefined) update.completed = completed;
+    if (reference_pages !== undefined) update.reference_pages = reference_pages;
+    if (series !== undefined) update.series = series;
 
     await AbsOverridesRepository.upsert(id, update);
-    absCache.invalidate(); // invalidate so the change is visible immediately
+    absCache.invalidate();
     res.json({ message: 'Updated' });
   } catch (err: any) {
     console.error('ABS book patch error:', err);
@@ -246,11 +281,10 @@ router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) =
 const coverUpload = multer({
   dest: appConfig.coversPath,
   fileFilter: (_req, file, cb) => {
-    const allowed = COVER_EXTENSIONS;
-    if (allowed.some((ext) => file.originalname.toLowerCase().endsWith(ext))) {
+    if (COVER_EXTENSIONS.some((ext) => file.originalname.toLowerCase().endsWith(ext))) {
       cb(null, true);
     } else {
-      cb(new Error(`Only ${allowed.join(', ')} files are allowed`));
+      cb(new Error(`Only ${COVER_EXTENSIONS.join(', ')} files are allowed`));
     }
   },
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -272,7 +306,6 @@ router.post(
       const dir = appConfig.coversPath;
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-      // Delete any existing custom cover for this item
       const existing = getCustomCoverPath(id);
       if (existing) rmSync(existing, { force: true });
 
@@ -309,7 +342,6 @@ router.get('/stats', async (_req, res) => {
   }
 });
 
-// Sessions proxy — returns all sessions (paginated internally) for client use
 router.get('/sessions', async (_req, res) => {
   const config = await getConfig();
   if (!config) {
@@ -317,8 +349,8 @@ router.get('/sessions', async (_req, res) => {
     return;
   }
   try {
-    const sessions = await fetchAllSessions(config.absUrl, config.apiKey);
-    res.json(sessions);
+    const { sessions, truncated } = await fetchAllSessions(config.absUrl, config.apiKey);
+    res.json({ sessions, truncated });
   } catch (err: any) {
     console.error('ABS sessions error:', err);
     res.status(502).json({ error: err?.message ?? 'Failed to fetch AudioBookShelf sessions' });
@@ -360,6 +392,34 @@ router.get('/cover/:itemId', async (req: Request<{ itemId: string }>, res: Respo
   } catch (err: any) {
     console.error('ABS cover proxy error:', err);
     res.status(502).end();
+  }
+});
+
+// Verify ABS connection without saving credentials
+router.post('/verify', async (req, res) => {
+  const { abs_url, abs_api_key } = req.body as { abs_url?: string; abs_api_key?: string };
+
+  if (!abs_url || !abs_api_key) {
+    res.status(400).json({ ok: false, message: 'abs_url and abs_api_key are required' });
+    return;
+  }
+
+  try {
+    const me = await absRequest<{ username?: string }>(abs_url, abs_api_key, '/api/me');
+    res.json({ ok: true, message: 'Connection successful', username: me.username });
+  } catch (err: any) {
+    res.json({ ok: false, message: err?.message ?? 'Connection failed' });
+  }
+});
+
+// Invalidate server-side ABS cache and re-fetch
+router.post('/refresh', async (_req, res) => {
+  try {
+    await absRefresh();
+    res.json({ message: 'AudioBookShelf data refreshed' });
+  } catch (err: any) {
+    console.error('ABS refresh error:', err);
+    res.status(502).json({ error: err?.message ?? 'Failed to refresh AudioBookShelf data' });
   }
 });
 

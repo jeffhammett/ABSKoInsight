@@ -7,7 +7,7 @@ export type KoReaderBook = {
   last_open: number;
   highlights: number;
   pages: number;
-  series: string;
+  series: string | null;
   language: string;
   // These fields only come from statistics.db sync, not annotation sync
   total_read_time?: number;
@@ -19,11 +19,12 @@ export type DbBook = {
   md5: string;
   title: string;
   authors: string;
-  series: string;
+  series: string | null;
   language: string;
 };
 
 export type Book = DbBook & {
   soft_deleted: boolean;
   reference_pages: number | null;
+  completed_override: boolean;
 };
