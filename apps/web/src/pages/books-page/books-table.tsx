@@ -1,6 +1,6 @@
 import { Anchor, Badge, Flex, Image, Progress, Stack, Table, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconEyeClosed, IconHeadphones, IconHighlight } from '@tabler/icons-react';
+import { IconBook, IconEyeClosed, IconHeadphones, IconHighlight } from '@tabler/icons-react';
 import { JSX } from 'react';
 import { NavLink } from 'react-router';
 import { API_URL } from '../../api/api';
@@ -77,6 +77,11 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
                   </Anchor>
                   <Stack gap={2} justify="center">
                     <Flex align="center" gap={4}>
+                      {book.source === 'ebook' && (
+                        <Tooltip label="E-book" withArrow>
+                          <IconBook size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
+                        </Tooltip>
+                      )}
                       {book.source === 'audiobook' && (
                         <Tooltip label="Audiobook" withArrow>
                           <IconHeadphones size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
@@ -97,6 +102,11 @@ export function BooksTable({ books }: BooksTableProps): JSX.Element {
                           &nbsp;{book.annotationsCount}
                         </Flex>
                       </Tooltip>
+                    )}
+                    {book.source === 'ebook' && (
+                      <Badge size="xs" color="teal" variant="light" w="fit-content">
+                        ebook
+                      </Badge>
                     )}
                     {book.source === 'audiobook' && (
                       <Badge size="xs" color="violet" variant="light" w="fit-content">

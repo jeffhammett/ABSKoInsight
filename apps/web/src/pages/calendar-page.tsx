@@ -8,14 +8,13 @@ import { JSX, useCallback, useMemo } from 'react';
 import { Link } from 'react-router';
 import { AbsSession, useAbsSessions } from '../api/audiobookshelf';
 import { useBooks } from '../api/books';
-import { useSettings } from '../api/settings';
 import { usePageStats } from '../api/use-page-stats';
 import { Calendar, CalendarEvent } from '../components/calendar/calendar';
 import {
   DataSourceToggle,
   useDataSource,
 } from '../components/data-source-toggle/data-source-toggle';
-import { getBookPath } from '../routes';
+import { getAbsBookPath, getBookPath } from '../routes';
 import { getDuration, shortDuration } from '../utils/dates';
 
 type DayData = {
@@ -31,8 +30,6 @@ export function CalendarPage(): JSX.Element {
     isLoading: eventsLoading,
   } = usePageStats();
   const { data: absSessions, isLoading: absLoading } = useAbsSessions();
-  const { data: settings } = useSettings();
-
   const showEbooks = dataSource === 'ebook' || dataSource === 'both';
   const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
 
@@ -113,20 +110,13 @@ export function CalendarPage(): JSX.Element {
           return acc;
         }, {});
 
-        const absBase = settings?.abs_url?.replace(/\/$/, '') ?? '';
-
         for (const [itemId, { title, seconds }] of Object.entries(byItem)) {
-          const href = absBase ? `${absBase}/item/${itemId}` : undefined;
           elements.push(
             <div key={`abs-${itemId}`}>
               <IconHeadphones size={14} />{' '}
-              {href ? (
-                <Anchor href={href} target="_blank" rel="noreferrer">
-                  {title}
-                </Anchor>
-              ) : (
-                title
-              )}
+              <Anchor component={Link} to={getAbsBookPath(itemId)}>
+                {title}
+              </Anchor>
               <br />
               <IconClock size={14} /> {shortDuration(getDuration(seconds))}
               <br />
@@ -137,7 +127,7 @@ export function CalendarPage(): JSX.Element {
 
       return elements;
     },
-    [getBookByMd5, settings]
+    [getBookByMd5]
   );
 
   const loading = isLoading || (showEbooks && eventsLoading) || (showAudiobooks && absLoading);

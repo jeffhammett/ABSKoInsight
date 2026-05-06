@@ -55,6 +55,7 @@ function ebookToUnified(book: BookWithData): UnifiedBook {
 }
 
 function absBookToUnified(book: AbsBook): UnifiedBook {
+  const hasProgress = book.progress > 0;
   return {
     key: `abs-${book.id}`,
     source: 'audiobook',
@@ -68,7 +69,7 @@ function absBookToUnified(book: AbsBook): UnifiedBook {
     readLabel: `${Math.round(book.progress * 100)}%`,
     totalPages: 'N/A',
     totalReadTime: book.currentTime ?? 0,
-    lastActivityMs: book.lastUpdate ?? book.addedAt ?? 0,
+    lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
   };
 }
 
