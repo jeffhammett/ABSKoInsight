@@ -11,6 +11,11 @@ function normalizeSeries(name: string | null | undefined): string {
   return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
 }
 
+function getSeriesSequence(series: string | null | undefined): number {
+  const match = series?.match(/\s+#(\d+(?:\.\d+)?)$/);
+  return match ? parseFloat(match[1]) : Infinity;
+}
+
 export function SeriesPage(): JSX.Element {
   const { name } = useParams() as { name: string };
   const seriesName = decodeURIComponent(name);
@@ -20,12 +25,16 @@ export function SeriesPage(): JSX.Element {
   const { data: absBooks, isLoading: absLoading } = useAbsBooks();
 
   const seriesEbooks = useMemo(
-    () => (ebooks ?? []).filter((b) => normalizeSeries(b.series) === normalizedTarget),
+    () => (ebooks ?? [])
+      .filter((b) => normalizeSeries(b.series) === normalizedTarget)
+      .sort((a, b) => getSeriesSequence(a.series) - getSeriesSequence(b.series)),
     [ebooks, normalizedTarget]
   );
 
   const seriesAbs = useMemo(
-    () => (absBooks ?? []).filter((b) => normalizeSeries(b.series) === normalizedTarget),
+    () => (absBooks ?? [])
+      .filter((b) => normalizeSeries(b.series) === normalizedTarget)
+      .sort((a, b) => getSeriesSequence(a.series) - getSeriesSequence(b.series)),
     [absBooks, normalizedTarget]
   );
 
