@@ -43,8 +43,13 @@ import style from './books-page.module.css';
 type SortKey = 'title' | 'authors' | 'totalReadTime' | 'lastActivityMs' | 'progressPct';
 
 function normalizeSeries(name: string | null | undefined): string {
-  if (!name) return '';
-  return name.toLowerCase().replace(/^the\s+/, '').trim();
+  if (!name || name === 'N/A') return '';
+  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
+}
+
+function displaySeriesName(name: string | null | undefined): string {
+  if (!name || name === 'N/A') return '';
+  return name.replace(/\s+#\d+(\.\d+)?$/, '').trim();
 }
 
 function ebookToUnified(book: BookWithData): UnifiedBook {
@@ -169,7 +174,7 @@ export function BooksPage(): JSX.Element {
     }
     return Array.from(groups.entries()).map(([key, books]) => ({
       key,
-      name: books[0].series || 'No series',
+      name: displaySeriesName(books[0].series) || 'No series',
       books,
     })).sort((a, b) => {
       if (a.key === '__ungrouped__') return 1;

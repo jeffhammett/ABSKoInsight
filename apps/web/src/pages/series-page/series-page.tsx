@@ -7,8 +7,8 @@ import { API_URL } from '../../api/api';
 import { getAbsBookPath, getBookPath } from '../../routes';
 
 function normalizeSeries(name: string | null | undefined): string {
-  if (!name) return '';
-  return name.toLowerCase().replace(/^the\s+/, '').trim();
+  if (!name || name === 'N/A') return '';
+  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
 }
 
 export function SeriesPage(): JSX.Element {

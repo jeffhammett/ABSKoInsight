@@ -23,8 +23,13 @@ import { EmptyState } from '../../components/empty-state/empty-state';
 import { getSeriesPath } from '../../routes';
 
 function normalizeSeries(name: string | null | undefined): string {
-  if (!name) return '';
-  return name.toLowerCase().replace(/^the\s+/, '').trim();
+  if (!name || name === 'N/A') return '';
+  return name.toLowerCase().replace(/^the\s+/, '').replace(/\s+#\d+(\.\d+)?$/, '').trim();
+}
+
+function displaySeriesName(name: string | null | undefined): string {
+  if (!name || name === 'N/A') return '';
+  return name.replace(/\s+#\d+(\.\d+)?$/, '').trim();
 }
 
 type SeriesEntry = {
@@ -51,7 +56,7 @@ function buildSeriesMap(
     if (!map.has(key)) {
       map.set(key, {
         key,
-        name: series,
+        name: displaySeriesName(series),
         ebookCount: 0,
         audiobookCount: 0,
         completedCount: 0,
@@ -65,7 +70,7 @@ function buildSeriesMap(
 
   if (showEbooks) {
     for (const b of ebooks) {
-      if (!b.series) continue;
+      if (!b.series || !normalizeSeries(b.series)) continue;
       const entry = ensure(b.series);
       entry.ebookCount++;
       entry.totalCount++;
@@ -80,7 +85,7 @@ function buildSeriesMap(
 
   if (showAudiobooks) {
     for (const b of absBooks) {
-      if (!b.series) continue;
+      if (!b.series || !normalizeSeries(b.series)) continue;
       const entry = ensure(b.series);
       entry.audiobookCount++;
       entry.totalCount++;
