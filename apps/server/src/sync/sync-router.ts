@@ -7,7 +7,14 @@ import { UploadService } from '../upload/upload-service';
 
 const router = Router();
 
+let syncInProgress = false;
+
 router.post('/webdav', async (_req, res) => {
+  if (syncInProgress) {
+    res.status(409).json({ error: 'Sync already in progress' });
+    return;
+  }
+  syncInProgress = true;
   const settings = await SettingsRepository.get();
 
   if (!settings.webdav_url || !settings.webdav_db_path) {
@@ -56,6 +63,7 @@ router.post('/webdav', async (_req, res) => {
     console.error('WebDAV sync error:', err);
     res.status(500).json({ error: err?.message ?? 'WebDAV sync failed' });
   } finally {
+    syncInProgress = false;
     if (tempPath) {
       try {
         unlinkSync(tempPath);

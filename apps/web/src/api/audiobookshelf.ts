@@ -52,6 +52,14 @@ export function useAbsBooks({ showHidden } = { showHidden: false }) {
   );
 }
 
+export function useAbsBook(id: string) {
+  return useSWR(
+    id ? `abs-book-${id}` : null,
+    () => fetchFromAPI<AbsBook>(`audiobookshelf/books/${id}`),
+    { shouldRetryOnError: false }
+  );
+}
+
 export function useAbsStats() {
   return useSWR('abs-stats', () => fetchFromAPI<AbsStats>('audiobookshelf/stats'), {
     shouldRetryOnError: false,

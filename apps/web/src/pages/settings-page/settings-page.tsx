@@ -29,10 +29,8 @@ export function SettingsPage(): JSX.Element {
     if (settings) {
       setWebdavUrl(settings.webdav_url ?? '');
       setWebdavUsername(settings.webdav_username ?? '');
-      setWebdavPassword(settings.webdav_password ?? '');
       setWebdavDbPath(settings.webdav_db_path ?? '');
       setAbsUrl(settings.abs_url ?? '');
-      setAbsApiKey(settings.abs_api_key ?? '');
     }
   }, [settings]);
 
@@ -100,7 +98,7 @@ export function SettingsPage(): JSX.Element {
         />
         <PasswordInput
           label="Password"
-          placeholder="password"
+          placeholder={settings?.webdav_password_set ? '(saved)' : 'password'}
           value={webdavPassword}
           onChange={(e) => setWebdavPassword(e.target.value)}
         />
@@ -131,7 +129,7 @@ export function SettingsPage(): JSX.Element {
         />
         <PasswordInput
           label="API Key"
-          placeholder="your-api-key"
+          placeholder={settings?.abs_api_key_set ? '(saved)' : 'your-api-key'}
           description="Found in AudioBookShelf under Settings → Users → your user → API Token"
           value={absApiKey}
           onChange={(e) => setAbsApiKey(e.target.value)}

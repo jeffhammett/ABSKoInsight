@@ -25,7 +25,7 @@ import { startOfDay } from 'date-fns';
 import { sum } from 'ramda';
 import { JSX, useState } from 'react';
 import { useParams } from 'react-router';
-import { AbsBook, useAbsBooks, useAbsSessions } from '../../api/audiobookshelf';
+import { AbsBook, AbsSession, useAbsBook, useAbsSessions } from '../../api/audiobookshelf';
 import { API_URL } from '../../api/api';
 import { formatRelativeDate, formatSecondsToHumanReadable } from '../../utils/dates';
 import { AbsBookPageCalendar } from './abs-book-page-calendar';
@@ -35,15 +35,14 @@ import style from '../book-page/book-card.module.css';
 
 export function AbsBookPage(): JSX.Element {
   const { id } = useParams() as { id: string };
-  const { data: books, isLoading: booksLoading } = useAbsBooks({ showHidden: true });
+  const { data: book, isLoading: bookLoading } = useAbsBook(id);
   const { data: allSessions, isLoading: sessionsLoading } = useAbsSessions();
   const [tabValue, setTabValue] = useState<string | null>('calendar');
   const [coverVersion, setCoverVersion] = useState(0);
 
-  const book = books?.find((b) => b.id === id);
   const sessions = (allSessions ?? []).filter((s) => s.libraryItemId === id);
 
-  if (booksLoading || sessionsLoading) {
+  if (bookLoading || sessionsLoading) {
     return (
       <Flex justify="center" align="center" h="100%">
         <Loader />
@@ -151,14 +150,14 @@ function AbsStatsCard({
   sessions,
 }: {
   book: AbsBook;
-  sessions: ReturnType<typeof useAbsSessions>['data'];
+  sessions: AbsSession[];
 }): JSX.Element {
   const progressPct = Math.round(book.progress * 100);
 
-  const totalListeningTime = sum((sessions ?? []).map((s) => s.timeListening));
+  const totalListeningTime = sum(sessions.map((s) => s.timeListening));
 
   const listeningDays = new Set(
-    (sessions ?? []).map((s) => startOfDay(new Date(s.startedAt)).getTime().toString())
+    sessions.map((s) => startOfDay(new Date(s.startedAt)).getTime().toString())
   ).size;
 
   const avgPerDay = listeningDays > 0 ? totalListeningTime / listeningDays : 0;

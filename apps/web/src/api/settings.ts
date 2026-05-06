@@ -9,6 +9,8 @@ export interface Settings {
   webdav_db_path: string | null;
   abs_url: string | null;
   abs_api_key: string | null;
+  webdav_password_set?: boolean;
+  abs_api_key_set?: boolean;
 }
 
 export function useSettings() {

@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
-import { existsSync, mkdirSync, promises as fsPromises, rmSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
+import { rename } from 'fs/promises';
 import multer from 'multer';
 import path from 'path';
 import { appConfig } from '../config';
@@ -8,6 +9,35 @@ import { AbsOverridesRepository } from './abs-overrides-repository';
 
 const router = Router();
 
+// ---------------------------------------------------------------------------
+// Simple TTL cache (fix #2)
+// ---------------------------------------------------------------------------
+class AbsCache {
+  private store = new Map<string, { data: unknown; expiresAt: number }>();
+
+  get<T>(key: string): T | null {
+    const entry = this.store.get(key);
+    if (!entry || entry.expiresAt <= Date.now()) {
+      this.store.delete(key);
+      return null;
+    }
+    return entry.data as T;
+  }
+
+  set(key: string, data: unknown, ttlMs = 60_000) {
+    this.store.set(key, { data, expiresAt: Date.now() + ttlMs });
+  }
+
+  invalidate() {
+    this.store.clear();
+  }
+}
+
+const absCache = new AbsCache();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 async function absRequest<T>(absUrl: string, apiKey: string, reqPath: string): Promise<T> {
   const base = absUrl.replace(/\/$/, '');
   const response = await fetch(`${base}${reqPath}`, {
@@ -28,17 +58,134 @@ async function getConfig() {
   return { absUrl: settings.abs_url, apiKey: settings.abs_api_key };
 }
 
-function absCoversPath() {
-  return appConfig.coversPath;
+// Fetch all sessions with pagination, up to 20,000 (fix #3)
+async function fetchAllSessions(absUrl: string, apiKey: string): Promise<any[]> {
+  const cacheKey = `sessions:${absUrl}`;
+  const cached = absCache.get<any[]>(cacheKey);
+  if (cached) return cached;
+
+  const all: any[] = [];
+  let page = 0;
+  const itemsPerPage = 1000;
+  const maxPages = 20;
+
+  while (page < maxPages) {
+    const data = await absRequest<{ sessions?: any[] }>(
+      absUrl,
+      apiKey,
+      `/api/me/listening-sessions?page=${page}&itemsPerPage=${itemsPerPage}`
+    );
+    const sessions = data.sessions ?? [];
+    all.push(...sessions);
+    if (sessions.length < itemsPerPage) break;
+    page++;
+  }
+
+  absCache.set(cacheKey, all);
+  return all;
 }
 
-async function getCustomCoverPath(itemId: string): Promise<string | null> {
-  const dir = absCoversPath();
-  if (!existsSync(dir)) return null;
-  const files = await fsPromises.readdir(dir);
-  const file = files.find((f) => f.startsWith(`abs-${itemId}`));
-  return file ? path.join(dir, file) : null;
+// Fetch and transform all books from ABS (cached, parallelised - fixes #1, #2)
+async function fetchAbsBooks(config: {
+  absUrl: string;
+  apiKey: string;
+}): Promise<any[]> {
+  const cacheKey = `books:${config.absUrl}`;
+  const cached = absCache.get<any[]>(cacheKey);
+  if (cached) return cached;
+
+  // Fire independent requests in parallel
+  const [libData, me, allSessions] = await Promise.all([
+    absRequest<{ libraries: any[] }>(config.absUrl, config.apiKey, '/api/libraries'),
+    absRequest<{ mediaProgress?: any[] }>(config.absUrl, config.apiKey, '/api/me'),
+    fetchAllSessions(config.absUrl, config.apiKey),
+  ]);
+
+  // Fetch per-library items in parallel
+  const bookLibraries = (libData.libraries ?? []).filter(
+    (lib: any) => lib.mediaType === 'book'
+  );
+  const itemResults = await Promise.all(
+    bookLibraries.map((lib: any) =>
+      absRequest<{ results: any[] }>(
+        config.absUrl,
+        config.apiKey,
+        `/api/libraries/${lib.id}/items?limit=1000`
+      )
+    )
+  );
+  const allItems = itemResults.flatMap((d) => d.results ?? []);
+
+  // Build lookup maps
+  const progressMap: Record<string, any> = {};
+  for (const p of me.mediaProgress ?? []) {
+    progressMap[p.libraryItemId] = p;
+  }
+
+  const listeningTimeMap: Record<string, number> = {};
+  for (const session of allSessions) {
+    const itemId = session.libraryItemId as string;
+    listeningTimeMap[itemId] = (listeningTimeMap[itemId] ?? 0) + (session.timeListening ?? 0);
+  }
+
+  const books = allItems.map((item: any) => {
+    const meta = item.media?.metadata ?? {};
+    const progress = progressMap[item.id] ?? {};
+    return {
+      id: item.id,
+      title: meta.title ?? 'Unknown',
+      authors: meta.authorName ?? '',
+      series: meta.seriesName ?? null,
+      duration: item.media?.duration ?? 0,
+      addedAt: item.addedAt ?? 0,
+      progress: progress.progress ?? 0,
+      currentTime: progress.currentTime ?? 0,
+      listeningTime: listeningTimeMap[item.id] ?? 0,
+      isFinished: progress.isFinished ?? false,
+      finishedAt: progress.finishedAt ?? null,
+      lastUpdate: progress.lastUpdate ?? null,
+      source: 'audiobookshelf',
+    };
+  });
+
+  absCache.set(cacheKey, books);
+  return books;
 }
+
+// Attach per-book overrides (hidden/deleted) from the local DB
+async function applyOverrides(
+  books: any[],
+  showHidden: boolean
+): Promise<any[]> {
+  const overrides = await AbsOverridesRepository.getAll();
+  const overrideMap: Record<string, { hidden: boolean; deleted: boolean }> = {};
+  for (const o of overrides) {
+    overrideMap[o.abs_item_id] = { hidden: Boolean(o.hidden), deleted: Boolean(o.deleted) };
+  }
+
+  return books
+    .map((b) => {
+      const o = overrideMap[b.id] ?? { hidden: false, deleted: false };
+      return { ...b, hidden: o.hidden, deleted: o.deleted };
+    })
+    .filter((b) => !b.deleted && (showHidden || !b.hidden));
+}
+
+// Custom cover helpers (fix #5 — existsSync per extension instead of readdir)
+const COVER_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'];
+
+function getCustomCoverPath(itemId: string): string | null {
+  const dir = appConfig.coversPath;
+  for (const ext of COVER_EXTENSIONS) {
+    const p = path.join(dir, `abs-${itemId}${ext}`);
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 
 router.get('/books', async (req, res) => {
   const config = await getConfig();
@@ -46,80 +193,35 @@ router.get('/books', async (req, res) => {
     res.status(400).json({ error: 'AudioBookShelf settings not configured' });
     return;
   }
-
   const showHidden = req.query.showHidden === 'true';
-
   try {
-    const { libraries } = await absRequest<{ libraries: any[] }>(
-      config.absUrl,
-      config.apiKey,
-      '/api/libraries'
-    );
-
-    const bookLibraries = (libraries ?? []).filter((lib: any) => lib.mediaType === 'book');
-    const allItems: any[] = [];
-    for (const lib of bookLibraries) {
-      const data = await absRequest<{ results: any[] }>(
-        config.absUrl,
-        config.apiKey,
-        `/api/libraries/${lib.id}/items?limit=1000`
-      );
-      allItems.push(...(data.results ?? []));
-    }
-
-    const me = await absRequest<{ mediaProgress?: any[] }>(config.absUrl, config.apiKey, '/api/me');
-    const progressMap: Record<string, any> = {};
-    for (const p of me.mediaProgress ?? []) {
-      progressMap[p.libraryItemId] = p;
-    }
-
-    const overrides = await AbsOverridesRepository.getAll();
-    const overrideMap: Record<string, { hidden: boolean; deleted: boolean }> = {};
-    for (const o of overrides) {
-      overrideMap[o.abs_item_id] = { hidden: o.hidden, deleted: o.deleted };
-    }
-
-    // Sum actual listening time per book from session records
-    const sessionsData = await absRequest<{ sessions?: any[] }>(
-      config.absUrl,
-      config.apiKey,
-      '/api/me/listening-sessions?page=0&itemsPerPage=1000'
-    );
-    const listeningTimeMap: Record<string, number> = {};
-    for (const session of sessionsData.sessions ?? []) {
-      const itemId = session.libraryItemId as string;
-      listeningTimeMap[itemId] = (listeningTimeMap[itemId] ?? 0) + (session.timeListening ?? 0);
-    }
-
-    const books = allItems
-      .map((item: any) => {
-        const meta = item.media?.metadata ?? {};
-        const progress = progressMap[item.id] ?? {};
-        const override = overrideMap[item.id] ?? { hidden: false, deleted: false };
-        return {
-          id: item.id,
-          title: meta.title ?? 'Unknown',
-          authors: meta.authorName ?? '',
-          series: meta.seriesName ?? null,
-          duration: item.media?.duration ?? 0,
-          addedAt: item.addedAt ?? 0,
-          progress: progress.progress ?? 0,
-          currentTime: progress.currentTime ?? 0,
-          listeningTime: listeningTimeMap[item.id] ?? 0,
-          isFinished: progress.isFinished ?? false,
-          finishedAt: progress.finishedAt ?? null,
-          lastUpdate: progress.lastUpdate ?? null,
-          source: 'audiobookshelf',
-          hidden: override.hidden,
-          deleted: override.deleted,
-        };
-      })
-      .filter((b) => !b.deleted && (showHidden || !b.hidden));
-
-    res.json(books);
+    const books = await fetchAbsBooks(config);
+    res.json(await applyOverrides(books, showHidden));
   } catch (err: any) {
     console.error('ABS books error:', err);
     res.status(502).json({ error: err?.message ?? 'Failed to fetch AudioBookShelf books' });
+  }
+});
+
+// Single book endpoint (fix #9)
+router.get('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
+  const config = await getConfig();
+  if (!config) {
+    res.status(400).json({ error: 'AudioBookShelf settings not configured' });
+    return;
+  }
+  try {
+    const books = await fetchAbsBooks(config);
+    const withOverrides = await applyOverrides(books, true);
+    const book = withOverrides.find((b) => b.id === req.params.id);
+    if (!book) {
+      res.status(404).json({ error: 'Book not found' });
+      return;
+    }
+    res.json(book);
+  } catch (err: any) {
+    console.error('ABS book error:', err);
+    res.status(502).json({ error: err?.message ?? 'Failed to fetch AudioBookShelf book' });
   }
 });
 
@@ -133,6 +235,7 @@ router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) =
     if (deleted !== undefined) update.deleted = deleted;
 
     await AbsOverridesRepository.upsert(id, update);
+    absCache.invalidate(); // invalidate so the change is visible immediately
     res.json({ message: 'Updated' });
   } catch (err: any) {
     console.error('ABS book patch error:', err);
@@ -143,7 +246,7 @@ router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) =
 const coverUpload = multer({
   dest: appConfig.coversPath,
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.png', '.jpg', '.jpeg', '.gif'];
+    const allowed = COVER_EXTENSIONS;
     if (allowed.some((ext) => file.originalname.toLowerCase().endsWith(ext))) {
       cb(null, true);
     } else {
@@ -153,34 +256,37 @@ const coverUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-router.post('/books/:id/cover', coverUpload.single('file'), async (req: Request<{ id: string }>, res: Response) => {
-  const { id } = req.params;
-  const file = req.file;
+router.post(
+  '/books/:id/cover',
+  coverUpload.single('file'),
+  async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const file = req.file;
 
-  if (!file) {
-    res.status(400).json({ error: 'Missing file upload' });
-    return;
+    if (!file) {
+      res.status(400).json({ error: 'Missing file upload' });
+      return;
+    }
+
+    try {
+      const dir = appConfig.coversPath;
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+      // Delete any existing custom cover for this item
+      const existing = getCustomCoverPath(id);
+      if (existing) rmSync(existing, { force: true });
+
+      const ext = path.extname(file.originalname) || '';
+      await rename(file.path, path.join(dir, `abs-${id}${ext}`));
+
+      absCache.invalidate();
+      res.json({ message: 'Cover updated' });
+    } catch (err: any) {
+      console.error('ABS cover upload error:', err);
+      res.status(500).json({ error: 'Failed to upload cover' });
+    }
   }
-
-  try {
-    const dir = absCoversPath();
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
-    // Delete any existing custom cover for this item
-    const existing = await getCustomCoverPath(id);
-    if (existing) rmSync(existing, { force: true });
-
-    // Rename uploaded temp file to abs-{itemId}.{ext}
-    const ext = path.extname(file.originalname) || '';
-    const newPath = path.join(dir, `abs-${id}${ext}`);
-    await fsPromises.rename(file.path, newPath);
-
-    res.json({ message: 'Cover updated' });
-  } catch (err: any) {
-    console.error('ABS cover upload error:', err);
-    res.status(500).json({ error: 'Failed to upload cover' });
-  }
-});
+);
 
 router.get('/stats', async (_req, res) => {
   const config = await getConfig();
@@ -188,7 +294,6 @@ router.get('/stats', async (_req, res) => {
     res.status(400).json({ error: 'AudioBookShelf settings not configured' });
     return;
   }
-
   try {
     const stats = await absRequest<any>(config.absUrl, config.apiKey, '/api/me/listening-stats');
     res.json({
@@ -204,23 +309,16 @@ router.get('/stats', async (_req, res) => {
   }
 });
 
-router.get('/sessions', async (req, res) => {
+// Sessions proxy — returns all sessions (paginated internally) for client use
+router.get('/sessions', async (_req, res) => {
   const config = await getConfig();
   if (!config) {
     res.status(400).json({ error: 'AudioBookShelf settings not configured' });
     return;
   }
-
-  const page = Number(req.query.page ?? 0);
-  const itemsPerPage = Number(req.query.itemsPerPage ?? 500);
-
   try {
-    const data = await absRequest<any>(
-      config.absUrl,
-      config.apiKey,
-      `/api/me/listening-sessions?page=${page}&itemsPerPage=${itemsPerPage}`
-    );
-    res.json(data.sessions ?? []);
+    const sessions = await fetchAllSessions(config.absUrl, config.apiKey);
+    res.json(sessions);
   } catch (err: any) {
     console.error('ABS sessions error:', err);
     res.status(502).json({ error: err?.message ?? 'Failed to fetch AudioBookShelf sessions' });
@@ -230,8 +328,7 @@ router.get('/sessions', async (req, res) => {
 router.get('/cover/:itemId', async (req: Request<{ itemId: string }>, res: Response) => {
   const { itemId } = req.params;
 
-  // Serve custom cover if one has been uploaded
-  const customPath = await getCustomCoverPath(itemId);
+  const customPath = getCustomCoverPath(itemId);
   if (customPath) {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(customPath);

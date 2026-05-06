@@ -21,6 +21,7 @@ import {
   DataSourceToggle,
   useDataSource,
 } from '../../components/data-source-toggle/data-source-toggle';
+import { ListeningCalendar } from '../../components/statistics/listening-calendar';
 import { ReadingCalendar } from '../../components/statistics/reading-calendar';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
@@ -114,7 +115,7 @@ export function StatsPage(): JSX.Element {
   } = usePageStats();
 
   const { data: absStats, isLoading: absLoading } = useAbsStats();
-  const { data: absSessions = [] } = useAbsSessions();
+  const { data: absSessions = [], isLoading: absSessionsLoading } = useAbsSessions();
 
   const booksByMd5 = useMemo(() => {
     return books?.reduce(
@@ -176,7 +177,8 @@ export function StatsPage(): JSX.Element {
   }, [absSessionDayMap]);
 
   const isLoading =
-    (showEbooks && (booksLoading || statsLoading)) || (showAudiobooks && absLoading);
+    (showEbooks && (booksLoading || statsLoading)) ||
+    (showAudiobooks && (absLoading || absSessionsLoading));
 
   if (isLoading) {
     return (
@@ -307,11 +309,7 @@ export function StatsPage(): JSX.Element {
             Listening history
           </Title>
           <Box mb="xl">
-            <ReadingCalendar
-              showEbookData={false}
-              absData={absSessionDayMap}
-              accentRgb="121, 80, 242"
-            />
+            <ListeningCalendar absData={absSessionDayMap} accentRgb="121, 80, 242" />
           </Box>
           <Title mt="xl" mb={4} order={3}>
             Weekly stats
