@@ -2,7 +2,7 @@ import { Book, PageStat } from '@koinsight/common/types';
 import { Box, Flex, Popover, Text, useMantineTheme } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { IconCaretDownFilled, IconClock, IconHeadphones, IconPageBreak } from '@tabler/icons-react';
-import { formatDate, isSameDay, startOfDay } from 'date-fns';
+import { endOfDay, formatDate, isSameDay, startOfDay } from 'date-fns';
 import { sum } from 'ramda';
 import { JSX, useMemo, useState } from 'react';
 import { AbsBook, AbsSession } from '../../api/audiobookshelf';
@@ -59,33 +59,34 @@ export function DayStats({
   const estimatedPages = useMemo(() => {
     if (!Object.keys(absBooksByItemId).length) return null;
     let pages = 0;
-    let hasAny = false;
     for (const s of daySessions) {
       const book = absBooksByItemId[s.libraryItemId];
       if (!book?.reference_pages || !book.duration) continue;
-      hasAny = true;
       pages += s.timeListening * (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
     }
-    return hasAny ? Math.round(pages) : null;
+    return Math.round(pages);
   }, [daySessions, absBooksByItemId]);
 
   const statsData = useMemo((): StatisticProps[] => {
-    const data: StatisticProps[] = [];
-    if (showEbooks) {
-      data.push(
+    if (showEbooks && showAudiobooks) {
+      const totalPages = pagesRead + (estimatedPages ?? 0);
+      return [
         { label: 'Read time', value: formatSecondsToHumanReadable(readingTime), icon: IconClock },
-        { label: 'Pages read', value: pagesRead, icon: IconPageBreak }
-      );
+        { label: 'Listen time', value: formatSecondsToHumanReadable(listeningTime), icon: IconHeadphones },
+        { label: 'Pages read', value: totalPages, icon: IconPageBreak },
+      ];
     }
-    if (showAudiobooks) {
-      data.push({
-        label: 'Listen time',
-        value: formatSecondsToHumanReadable(listeningTime),
-        icon: IconHeadphones,
-      });
-      if (estimatedPages !== null) {
-        data.push({ label: 'Estimated pages', value: estimatedPages, icon: IconPageBreak });
-      }
+    if (showEbooks) {
+      return [
+        { label: 'Read time', value: formatSecondsToHumanReadable(readingTime), icon: IconClock },
+        { label: 'Pages read', value: pagesRead, icon: IconPageBreak },
+      ];
+    }
+    const data: StatisticProps[] = [
+      { label: 'Listen time', value: formatSecondsToHumanReadable(listeningTime), icon: IconHeadphones },
+    ];
+    if (estimatedPages !== null) {
+      data.push({ label: 'Estimated pages', value: estimatedPages, icon: IconPageBreak });
     }
     return data;
   }, [showEbooks, showAudiobooks, readingTime, pagesRead, listeningTime, estimatedPages]);
@@ -104,7 +105,7 @@ export function DayStats({
         <Popover.Dropdown>
           <DatePicker
             value={selectedDate}
-            maxDate={new Date()}
+            maxDate={endOfDay(new Date())}
             onChange={(date) => date && setSelectedDate(startOfDay(date))}
           />
         </Popover.Dropdown>

@@ -13,10 +13,8 @@ import {
   addDays,
   differenceInCalendarDays,
   endOfDay,
-  endOfWeek,
   format,
   formatDate,
-  getDay,
   isBefore,
   isSameDay,
   startOfDay,
@@ -42,14 +40,13 @@ export function WeekStats({
   );
 
   const weekEnd = useMemo(() => {
-    const rawWeekEnd = endOfWeek(weekStart, { weekStartsOn: 1 }).getTime();
+    const rawWeekEnd = endOfDay(addDays(weekStart, 6)).getTime();
     const today = endOfDay(new Date()).getTime();
     return rawWeekEnd <= today ? rawWeekEnd : today;
   }, [weekStart]);
 
   const weekData = useMemo(() => {
-    const start = startOfWeek(weekStart, { weekStartsOn: 1 }).getTime();
-    return stats?.filter(({ start_time }) => start_time < weekEnd && start_time > start);
+    return stats?.filter(({ start_time }) => start_time >= weekStart && start_time <= weekEnd);
   }, [stats, weekStart, weekEnd]);
 
   const weekDaysPassed = useMemo(
@@ -122,9 +119,9 @@ export function WeekStats({
         <Popover.Dropdown>
           <DatePicker
             value={new Date(weekStart)}
-            maxDate={endOfWeek(new Date(), { weekStartsOn: 1 })}
+            maxDate={new Date()}
             onChange={(date) =>
-              date && setWeekStart(startOfWeek(date, { weekStartsOn: 1 }).getTime())
+              date && setWeekStart(startOfDay(date).getTime())
             }
           />
         </Popover.Dropdown>

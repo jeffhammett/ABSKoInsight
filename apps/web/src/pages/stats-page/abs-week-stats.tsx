@@ -6,11 +6,11 @@ import {
   addDays,
   differenceInCalendarDays,
   endOfDay,
-  endOfWeek,
   format,
   formatDate,
   isBefore,
   isSameDay,
+  startOfDay,
   startOfWeek,
 } from 'date-fns';
 import { sum } from 'ramda';
@@ -30,7 +30,7 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
   );
 
   const weekEnd = useMemo(() => {
-    const rawWeekEnd = endOfWeek(weekStart, { weekStartsOn: 1 }).getTime();
+    const rawWeekEnd = endOfDay(addDays(weekStart, 6)).getTime();
     const today = endOfDay(new Date()).getTime();
     return rawWeekEnd <= today ? rawWeekEnd : today;
   }, [weekStart]);
@@ -41,8 +41,7 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
   );
 
   const weekSessions = useMemo(() => {
-    const start = startOfWeek(weekStart, { weekStartsOn: 1 }).getTime();
-    return sessions.filter((s) => s.startedAt >= start && s.startedAt <= weekEnd);
+    return sessions.filter((s) => s.startedAt >= weekStart && s.startedAt <= weekEnd);
   }, [sessions, weekStart, weekEnd]);
 
   const totalTime = useMemo(() => sum(weekSessions.map((s) => s.timeListening)), [weekSessions]);
@@ -115,9 +114,9 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
         <Popover.Dropdown>
           <DatePicker
             value={new Date(weekStart)}
-            maxDate={endOfWeek(new Date(), { weekStartsOn: 1 })}
+            maxDate={new Date()}
             onChange={(date) =>
-              date && setWeekStart(startOfWeek(date, { weekStartsOn: 1 }).getTime())
+              date && setWeekStart(startOfDay(date).getTime())
             }
           />
         </Popover.Dropdown>
