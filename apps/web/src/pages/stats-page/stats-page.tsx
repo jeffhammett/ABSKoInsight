@@ -26,6 +26,7 @@ import { ReadingCalendar } from '../../components/statistics/reading-calendar';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 import { AbsWeekStats } from './abs-week-stats';
+import { DayStats } from './day-stats';
 import { WeekStats } from './week-stats';
 
 const DAY_ORDER: Record<string, number> = {
@@ -354,6 +355,17 @@ export function StatsPage(): JSX.Element {
             <ReadingCalendar />
           </Box>
           <Title mt="xl" mb={4} order={3}>
+            Daily stats
+          </Title>
+          <DayStats
+            stats={stats}
+            booksByMd5={booksByMd5 ?? {}}
+            absSessions={[]}
+            absBooksByItemId={{}}
+            showEbooks
+            showAudiobooks={false}
+          />
+          <Title mt="xl" mb={4} order={3}>
             Weekly stats
           </Title>
           <WeekStats stats={stats} booksByMd5={booksByMd5} />
@@ -369,6 +381,17 @@ export function StatsPage(): JSX.Element {
             <ListeningCalendar absData={absSessionDayMap} accentRgb="121, 80, 242" />
           </Box>
           <Title mt="xl" mb={4} order={3}>
+            Daily stats
+          </Title>
+          <DayStats
+            stats={[]}
+            booksByMd5={{}}
+            absSessions={absSessions}
+            absBooksByItemId={absBooksByItemId}
+            showEbooks={false}
+            showAudiobooks
+          />
+          <Title mt="xl" mb={4} order={3}>
             Weekly stats
           </Title>
           <AbsWeekStats absBooksByItemId={absBooksByItemId} />
@@ -383,6 +406,17 @@ export function StatsPage(): JSX.Element {
           <Box mb="xl">
             <ReadingCalendar absData={absSessionDayMap} />
           </Box>
+          <Title mt="xl" mb={4} order={3}>
+            Daily stats
+          </Title>
+          <DayStats
+            stats={stats}
+            booksByMd5={booksByMd5 ?? {}}
+            absSessions={absSessions}
+            absBooksByItemId={absBooksByItemId}
+            showEbooks
+            showAudiobooks
+          />
         </>
       )}
 
