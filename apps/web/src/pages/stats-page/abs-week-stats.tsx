@@ -10,7 +10,6 @@ import {
   formatDate,
   isBefore,
   isSameDay,
-  startOfDay,
   startOfWeek,
 } from 'date-fns';
 import { sum } from 'ramda';
@@ -25,7 +24,6 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
   const { colors } = useMantineTheme();
   const { data: sessions = [] } = useAbsSessions();
 
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<number>(
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
   );
@@ -103,9 +101,9 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
 
   return (
     <>
-      <Popover opened={pickerOpen} onChange={setPickerOpen} position="bottom-start">
+      <Popover position="bottom-start">
         <Popover.Target>
-          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }} onClick={() => setPickerOpen((o) => !o)}>
+          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }}>
             <Text c="violet.4" tt="uppercase" size="sm" fw={600}>
               {formatDate(weekStart, 'dd MMM')} - {formatDate(weekEnd, 'dd MMM')}
             </Text>
@@ -120,7 +118,6 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
               if (!dateStr) return;
               const [y, m, d] = (dateStr as string).split('-').map(Number);
               setWeekStart(new Date(y, m - 1, d).getTime());
-              setPickerOpen(false);
             }}
           />
         </Popover.Dropdown>

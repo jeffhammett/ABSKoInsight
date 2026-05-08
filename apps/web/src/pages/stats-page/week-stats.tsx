@@ -35,7 +35,6 @@ export function WeekStats({
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
 
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<number>(
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
   );
@@ -108,9 +107,9 @@ export function WeekStats({
 
   return (
     <>
-      <Popover opened={pickerOpen} onChange={setPickerOpen} position="bottom-start">
+      <Popover position="bottom-start">
         <Popover.Target>
-          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }} onClick={() => setPickerOpen((o) => !o)}>
+          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }}>
             <Text c="koinsight.4" tt="uppercase" size="sm" fw={600}>
               {formatDate(weekStart, 'dd MMM')} - {formatDate(weekEnd, 'dd MMM')}
             </Text>
@@ -125,7 +124,6 @@ export function WeekStats({
               if (!dateStr) return;
               const [y, m, d] = (dateStr as string).split('-').map(Number);
               setWeekStart(new Date(y, m - 1, d).getTime());
-              setPickerOpen(false);
             }}
           />
         </Popover.Dropdown>
