@@ -7,7 +7,7 @@ const H = 20;
 const BAR_W = 2.5;
 const MAX_DURATION = 3600; // 1 hour = full height
 const MIN_HEIGHT = 2;
-const GAP_THRESHOLD = 900; // 15 min gap splits sessions
+const GAP_THRESHOLD = 3600; // 60 min gap splits sessions
 
 type Session = { startTime: number; duration: number };
 
@@ -15,22 +15,20 @@ function groupPageStats(events: PageStat[]): Session[] {
   if (!events.length) return [];
   const sorted = [...events].sort((a, b) => a.start_time - b.start_time);
   const sessions: Session[] = [];
-  let cur: Session & { endTime: number } = {
+  let cur = {
     startTime: sorted[0].start_time,
     endTime: sorted[0].start_time + sorted[0].duration,
-    duration: sorted[0].duration,
   };
   for (let i = 1; i < sorted.length; i++) {
     const e = sorted[i];
     if (e.start_time - cur.endTime < GAP_THRESHOLD) {
       cur.endTime = Math.max(cur.endTime, e.start_time + e.duration);
-      cur.duration += e.duration;
     } else {
-      sessions.push({ startTime: cur.startTime, duration: cur.duration });
-      cur = { startTime: e.start_time, endTime: e.start_time + e.duration, duration: e.duration };
+      sessions.push({ startTime: cur.startTime, duration: cur.endTime - cur.startTime });
+      cur = { startTime: e.start_time, endTime: e.start_time + e.duration };
     }
   }
-  sessions.push({ startTime: cur.startTime, duration: cur.duration });
+  sessions.push({ startTime: cur.startTime, duration: cur.endTime - cur.startTime });
   return sessions;
 }
 
