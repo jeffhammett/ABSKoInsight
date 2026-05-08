@@ -10,6 +10,7 @@ import { AbsSession, useAbsSessions } from '../api/audiobookshelf';
 import { useBooks } from '../api/books';
 import { usePageStats } from '../api/use-page-stats';
 import { Calendar, CalendarEvent } from '../components/calendar/calendar';
+import { DayTimeline } from '../components/calendar/day-timeline';
 import {
   DataSourceToggle,
   useDataSource,
@@ -124,6 +125,14 @@ export function CalendarPage(): JSX.Element {
           );
         }
       }
+
+      elements.push(
+        <DayTimeline
+          key="timeline"
+          readingEvents={data.readingEvents}
+          listeningEvents={data.listeningEvents}
+        />
+      );
 
       return elements;
     },
