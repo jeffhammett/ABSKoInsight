@@ -295,7 +295,7 @@ export function BooksPage(): JSX.Element {
         </Group>
       </div>
 
-      {mode === 'table' || dataSource !== 'ebook' ? (
+      {mode === 'table' ? (
         grouped ? (
           <Stack gap="xl">
             {grouped.map(({ key, name, books }) => (
