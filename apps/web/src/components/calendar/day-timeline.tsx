@@ -73,7 +73,7 @@ export function DayTimeline({ readingEvents, listeningEvents }: Props): JSX.Elem
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
       height={H}
-      style={{ display: 'block', marginTop: 6 }}
+      style={{ display: 'block', marginTop: 'auto' }}
       aria-hidden
     >
       {bars.map((bar, i) => (

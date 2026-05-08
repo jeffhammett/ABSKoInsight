@@ -26,6 +26,8 @@
   padding: var(--mantine-spacing-xs);
   border: 1px solid var(--border-color);
   min-height: 150px;
+  display: flex;
+  flex-direction: column;
 }
 
 .CalendarDay {
@@ -36,6 +38,9 @@
 
 .CalendarEvent {
   text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .CalendarDateToday {

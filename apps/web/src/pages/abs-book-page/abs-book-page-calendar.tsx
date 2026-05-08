@@ -4,6 +4,7 @@ import { sum } from 'ramda';
 import { JSX } from 'react';
 import { AbsSession } from '../../api/audiobookshelf';
 import { Calendar, CalendarEvent } from '../../components/calendar/calendar';
+import { DayTimeline } from '../../components/calendar/day-timeline';
 import { getDuration, shortDuration } from '../../utils/dates';
 
 type DayData = { sessions: AbsSession[] };
@@ -24,6 +25,7 @@ export function AbsBookPageCalendar({ sessions }: { sessions: AbsSession[] }): J
         <>
           <IconClock size={14} />{' '}
           {shortDuration(getDuration(sum(data.sessions.map((s) => s.timeListening))))}
+          <DayTimeline readingEvents={[]} listeningEvents={data.sessions} />
         </>
       )}
     />
