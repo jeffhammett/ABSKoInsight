@@ -7,32 +7,24 @@ const H = 20;
 const BAR_W = 2.5;
 const MAX_DURATION = 3600; // 1 hour = full height
 const MIN_HEIGHT = 2;
-// start_time from PageStat arrives in milliseconds (server multiplies by 1000).
-// duration stays in seconds. GAP_THRESHOLD is in ms.
-const GAP_THRESHOLD_MS = 3600 * 1000; // 60 min
 
 type Session = { startTimeMs: number; durationSecs: number };
 
-function groupPageStats(events: PageStat[]): Session[] {
-  if (!events.length) return [];
-  const sorted = [...events].sort((a, b) => a.start_time - b.start_time);
-  const sessions: Session[] = [];
-  let cur = {
-    startMs: sorted[0].start_time,
-    endMs: sorted[0].start_time + sorted[0].duration * 1000,
-  };
-  for (let i = 1; i < sorted.length; i++) {
-    const e = sorted[i];
-    const eEndMs = e.start_time + e.duration * 1000;
-    if (e.start_time - cur.endMs < GAP_THRESHOLD_MS) {
-      cur.endMs = Math.max(cur.endMs, eEndMs);
+// Group by book: one bar per book, at the first read of the day, height = sum of page durations.
+// start_time from PageStat is in milliseconds (server multiplies DB seconds by 1000).
+// duration stays in seconds — same unit as ABS timeListening, so bars are directly comparable.
+function groupPageStatsByBook(events: PageStat[]): Session[] {
+  const byBook = new Map<string, Session>();
+  for (const e of events) {
+    const existing = byBook.get(e.book_md5);
+    if (!existing) {
+      byBook.set(e.book_md5, { startTimeMs: e.start_time, durationSecs: e.duration });
     } else {
-      sessions.push({ startTimeMs: cur.startMs, durationSecs: (cur.endMs - cur.startMs) / 1000 });
-      cur = { startMs: e.start_time, endMs: eEndMs };
+      if (e.start_time < existing.startTimeMs) existing.startTimeMs = e.start_time;
+      existing.durationSecs += e.duration;
     }
   }
-  sessions.push({ startTimeMs: cur.startMs, durationSecs: (cur.endMs - cur.startMs) / 1000 });
-  return sessions;
+  return Array.from(byBook.values());
 }
 
 // Both ebook start_time (ms) and ABS startedAt (ms) go through here.
@@ -53,7 +45,7 @@ type Props = {
 export function DayTimeline({ readingEvents, listeningEvents }: Props): JSX.Element | null {
   if (!readingEvents.length && !listeningEvents.length) return null;
 
-  const readingSessions = groupPageStats(readingEvents);
+  const readingSessions = groupPageStatsByBook(readingEvents);
 
   const bars: { x: number; h: number; color: string }[] = [
     ...readingSessions.map((s) => ({
