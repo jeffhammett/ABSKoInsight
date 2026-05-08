@@ -1,10 +1,12 @@
-import { Anchor, Badge, Flex, Image, Loader, Progress, Stack, Table, Text, Title } from '@mantine/core';
+import { Button, Flex, Loader, Progress, Text, Title, Tooltip } from '@mantine/core';
+import { useLocalStorage } from '@mantine/hooks';
+import { IconCards, IconTable } from '@tabler/icons-react';
 import { JSX, useMemo } from 'react';
-import { NavLink, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useAbsBooks } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
-import { API_URL } from '../../api/api';
-import { getAbsBookPath, getBookPath } from '../../routes';
+import { BooksCards } from '../books-page/books-cards';
+import { BooksTable, UnifiedBook } from '../books-page/books-table';
 
 import { normalizeSeries, getSeriesSequence } from '../../utils/series';
 
@@ -30,6 +32,55 @@ export function SeriesPage(): JSX.Element {
     [absBooks, normalizedTarget]
   );
 
+  const [mode, setMode] = useLocalStorage<'table' | 'cards'>({
+    key: 'koinsight-series-detail-mode',
+    defaultValue: 'table',
+  });
+
+  const unifiedBooks = useMemo((): UnifiedBook[] => {
+    const ebooks: UnifiedBook[] = seriesEbooks.map((book) => {
+      const rawPct = book.total_pages > 0 ? (book.unique_read_pages / book.total_pages) * 100 : 0;
+      return {
+        key: `ebook-${book.id}`,
+        source: 'ebook',
+        title: book.title,
+        authors: book.authors,
+        series: book.series,
+        ebookId: book.id,
+        soft_deleted: book.soft_deleted,
+        annotationsCount: book.annotations.length,
+        progressPct: book.completed_override ? 100 : rawPct,
+        readLabel: book.completed_override ? '100%' : `${Math.round(rawPct)}%`,
+        totalPages: String(book.total_pages),
+        totalReadTime: book.total_read_time ?? 0,
+        lastActivityMs: (book.last_open ?? 0) * 1000,
+        completed: !!book.completed_override,
+      };
+    });
+    const absBooks: UnifiedBook[] = seriesAbs.map((book) => {
+      const hasProgress = book.progress > 0;
+      return {
+        key: `abs-${book.id}`,
+        source: 'audiobook',
+        title: book.title,
+        authors: book.authors || null,
+        series: book.series,
+        absItemId: book.id,
+        soft_deleted: false,
+        annotationsCount: 0,
+        progressPct: book.completed ? 100 : book.progress * 100,
+        readLabel: book.completed ? '100%' : `${Math.round(book.progress * 100)}%`,
+        totalPages: book.reference_pages ? String(book.reference_pages) : 'N/A',
+        totalReadTime: book.listeningTime ?? 0,
+        lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
+        completed: !!book.completed,
+      };
+    });
+    return [...ebooks, ...absBooks].sort(
+      (a, b) => getSeriesSequence(a.series) - getSeriesSequence(b.series)
+    );
+  }, [seriesEbooks, seriesAbs]);
+
   const isLoading = ebooksLoading || absLoading;
 
   if (isLoading) {
@@ -50,7 +101,27 @@ export function SeriesPage(): JSX.Element {
 
   return (
     <>
-      <Title mb="xs">{seriesName}</Title>
+      <Flex justify="space-between" align="flex-start" mb="xs" wrap="wrap" gap="sm">
+        <Title>{seriesName}</Title>
+        <Button.Group>
+          <Tooltip label="Table view" position="top" withArrow>
+            <Button
+              variant={mode === 'table' ? 'filled' : 'default'}
+              onClick={() => setMode('table')}
+            >
+              <IconTable size={16} />
+            </Button>
+          </Tooltip>
+          <Tooltip label="Cards view" position="top" withArrow>
+            <Button
+              variant={mode === 'cards' ? 'filled' : 'default'}
+              onClick={() => setMode('cards')}
+            >
+              <IconCards size={16} />
+            </Button>
+          </Tooltip>
+        </Button.Group>
+      </Flex>
       <Flex align="center" gap="md" mb="xl">
         <Text c="dimmed" size="sm">
           {totalCompleted} of {totalBooks} {totalBooks === 1 ? 'book' : 'books'} completed ({completionPct}%)
@@ -58,121 +129,19 @@ export function SeriesPage(): JSX.Element {
         <Progress value={completionPct} w={120} size="sm" />
       </Flex>
 
-      {seriesEbooks.length > 0 && (
-        <>
-          <Title order={3} mb="md">
-            E-books
-          </Title>
-          <Table mb="xl">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Title</Table.Th>
-                <Table.Th>Progress</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {seriesEbooks.map((book) => {
-                const pct = book.completed_override
-                  ? 100
-                  : book.total_pages > 0
-                  ? Math.round((book.unique_read_pages / book.total_pages) * 100)
-                  : 0;
-                return (
-                  <Table.Tr key={book.id}>
-                    <Table.Td>
-                      <Flex align="center" gap="sm">
-                        <Image
-                          src={`${API_URL}/books/${book.id}/cover`}
-                          w={40}
-                          style={{ aspectRatio: '1/1.5' }}
-                          fit="contain"
-                          fallbackSrc="/book-placeholder-small.png"
-                          radius="sm"
-                          alt={book.title}
-                        />
-                        <Stack gap={2}>
-                          <Anchor to={getBookPath(book.id)} component={NavLink} fw={700} size="sm">
-                            {book.title}
-                          </Anchor>
-                          {book.series && <Text size="xs" c="dimmed">{book.series}</Text>}
-                          <Text size="xs" c="dimmed">{book.authors}</Text>
-                        </Stack>
-                      </Flex>
-                    </Table.Td>
-                    <Table.Td>
-                      <Flex align="center" gap="sm">
-                        <Progress value={pct} w={80} size="sm" color="koinsight" />
-                        <Text size="sm">{pct}%</Text>
-                        {(book.completed_override || pct === 100) && (
-                          <Badge size="xs" color="green">Completed</Badge>
-                        )}
-                      </Flex>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </>
-      )}
+      {mode === 'cards' ? (
+        totalBooks === 0 ? (
+          <Text c="dimmed">No books found for this series.</Text>
+        ) : (
+          <BooksCards books={unifiedBooks} />
+        )
+      ) : null}
 
-      {seriesAbs.length > 0 && (
-        <>
-          <Title order={3} mb="md">
-            Audiobooks
-          </Title>
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Title</Table.Th>
-                <Table.Th>Progress</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {seriesAbs.map((book) => {
-                const pct = book.completed ? 100 : Math.round(book.progress * 100);
-                return (
-                  <Table.Tr key={book.id}>
-                    <Table.Td>
-                      <Flex align="center" gap="sm">
-                        <Image
-                          src={`${API_URL}/audiobookshelf/cover/${book.id}`}
-                          w={40}
-                          style={{ aspectRatio: '1/1.5' }}
-                          fit="contain"
-                          fallbackSrc="/book-placeholder-small.png"
-                          radius="sm"
-                          alt={book.title}
-                        />
-                        <Stack gap={2}>
-                          <Anchor to={getAbsBookPath(book.id)} component={NavLink} fw={700} size="sm">
-                            {book.title}
-                          </Anchor>
-                          {book.series && <Text size="xs" c="dimmed">{book.series}</Text>}
-                          <Text size="xs" c="dimmed">{book.authors}</Text>
-                        </Stack>
-                      </Flex>
-                    </Table.Td>
-                    <Table.Td>
-                      <Flex align="center" gap="sm">
-                        <Progress value={pct} w={80} size="sm" color="violet" />
-                        <Text size="sm">{pct}%</Text>
-                        {(book.completed || book.isFinished) && (
-                          <Badge size="xs" color="green">Completed</Badge>
-                        )}
-                      </Flex>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </>
-      )}
-
-      {totalBooks === 0 && (
+      {mode === 'table' && totalBooks === 0 && (
         <Text c="dimmed">No books found for this series.</Text>
       )}
+
+      {mode === 'table' && totalBooks > 0 && <BooksTable books={unifiedBooks} />}
     </>
   );
 }

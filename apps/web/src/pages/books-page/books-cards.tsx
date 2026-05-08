@@ -1,8 +1,10 @@
-import { Box, Group, Image, Progress, Text, Tooltip } from '@mantine/core';
+import { Box, Flex, Group, Image, Progress, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
+  IconBook,
   IconBooks,
   IconEyeClosed,
+  IconHeadphones,
   IconHighlight,
   IconProgress,
   IconUser,
@@ -68,9 +70,15 @@ export function BooksCards({ books }: BooksCardsProps): JSX.Element {
               color={book.source === 'audiobook' ? 'violet' : 'koinsight'}
             />
             <Box px="lg" className={C(style.CardDetails, { [style.Small]: isSmallScreen })}>
-              <Text fz="md" fw={600} style={{ wordBreak: 'break-word', whiteSpace: 'wrap' }}>
-                {book.title}
-              </Text>
+              <Flex align="flex-start" gap={6}>
+                {book.source === 'ebook'
+                  ? <IconBook size={14} style={{ flexShrink: 0, marginTop: 3, opacity: 0.7 }} />
+                  : <IconHeadphones size={14} style={{ flexShrink: 0, marginTop: 3, opacity: 0.7 }} />
+                }
+                <Text fz="md" fw={600} style={{ wordBreak: 'break-word', whiteSpace: 'wrap' }}>
+                  {book.title}
+                </Text>
+              </Flex>
               <Group wrap="nowrap" gap={8} mt="xs">
                 <Tooltip label="Author" position="top" withArrow>
                   <IconUser stroke={1.5} size={16} />

@@ -1,6 +1,7 @@
 import { BookWithData } from '@koinsight/common/types';
 import {
   Badge,
+  Button,
   Flex,
   Loader,
   Progress,
@@ -9,8 +10,10 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from '@mantine/core';
-import { IconX } from '@tabler/icons-react';
+import { useLocalStorage } from '@mantine/hooks';
+import { IconCards, IconTable, IconX } from '@tabler/icons-react';
 import { JSX, useMemo, useState } from 'react';
 import { NavLink } from 'react-router';
 import { AbsBook, useAbsBooks } from '../../api/audiobookshelf';
@@ -21,6 +24,7 @@ import {
 } from '../../components/data-source-toggle/data-source-toggle';
 import { EmptyState } from '../../components/empty-state/empty-state';
 import { getSeriesPath } from '../../routes';
+import { SeriesListCards } from './series-list-cards';
 
 import { displaySeriesName, normalizeSeries } from '../../utils/series';
 
@@ -96,6 +100,10 @@ function buildSeriesMap(
 export function SeriesListPage(): JSX.Element {
   const [dataSource, setDataSource] = useDataSource('series');
   const [searchTerm, setSearchTerm] = useState('');
+  const [mode, setMode] = useLocalStorage<'table' | 'cards'>({
+    key: 'koinsight-series-list-mode',
+    defaultValue: 'table',
+  });
 
   const showEbooks = dataSource === 'ebook' || dataSource === 'both';
   const showAudiobooks = dataSource === 'audiobook' || dataSource === 'both';
@@ -129,7 +137,27 @@ export function SeriesListPage(): JSX.Element {
     <>
       <Flex justify="space-between" align="center" mb="xl" wrap="wrap" gap="sm">
         <Title>Series</Title>
-        <DataSourceToggle value={dataSource} onChange={setDataSource} />
+        <Flex gap="sm" align="center">
+          <DataSourceToggle value={dataSource} onChange={setDataSource} />
+          <Button.Group>
+            <Tooltip label="Table view" position="top" withArrow>
+              <Button
+                variant={mode === 'table' ? 'filled' : 'default'}
+                onClick={() => setMode('table')}
+              >
+                <IconTable size={16} />
+              </Button>
+            </Tooltip>
+            <Tooltip label="Cards view" position="top" withArrow>
+              <Button
+                variant={mode === 'cards' ? 'filled' : 'default'}
+                onClick={() => setMode('cards')}
+              >
+                <IconCards size={16} />
+              </Button>
+            </Tooltip>
+          </Button.Group>
+        </Flex>
       </Flex>
 
       <TextInput
@@ -150,6 +178,8 @@ export function SeriesListPage(): JSX.Element {
           title="No series found"
           description="Add series metadata to your books to see them grouped here."
         />
+      ) : mode === 'cards' ? (
+        <SeriesListCards series={filtered} />
       ) : (
         <Table>
           <Table.Thead>
