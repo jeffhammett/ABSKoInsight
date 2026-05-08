@@ -2,7 +2,7 @@ import { Book, PageStat } from '@koinsight/common/types';
 import { Box, Flex, Popover, Text, useMantineTheme } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { IconCaretDownFilled, IconClock, IconHeadphones, IconPageBreak } from '@tabler/icons-react';
-import { endOfDay, formatDate, isSameDay, startOfDay } from 'date-fns';
+import { format, formatDate, isSameDay, startOfDay } from 'date-fns';
 import { sum } from 'ramda';
 import { JSX, useMemo, useState } from 'react';
 import { AbsBook, AbsSession } from '../../api/audiobookshelf';
@@ -29,6 +29,7 @@ export function DayStats({
   showAudiobooks,
 }: DayStatsProps): JSX.Element {
   const { colors } = useMantineTheme();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
 
   const dayStats = useMemo(
@@ -93,9 +94,9 @@ export function DayStats({
 
   return (
     <>
-      <Popover position="bottom-start">
+      <Popover opened={pickerOpen} onChange={setPickerOpen} position="bottom-start">
         <Popover.Target>
-          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }}>
+          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }} onClick={() => setPickerOpen((o) => !o)}>
             <Text c="koinsight.4" tt="uppercase" size="sm" fw={600}>
               {formatDate(selectedDate, 'dd MMM yyyy')}
             </Text>
@@ -104,9 +105,13 @@ export function DayStats({
         </Popover.Target>
         <Popover.Dropdown>
           <DatePicker
-            value={selectedDate}
-            maxDate={endOfDay(new Date())}
-            onChange={(date) => date && setSelectedDate(startOfDay(date))}
+            value={format(selectedDate, 'yyyy-MM-dd')}
+            onChange={(dateStr) => {
+              if (!dateStr) return;
+              const [y, m, d] = (dateStr as string).split('-').map(Number);
+              setSelectedDate(new Date(y, m - 1, d));
+              setPickerOpen(false);
+            }}
           />
         </Popover.Dropdown>
       </Popover>

@@ -25,6 +25,7 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
   const { colors } = useMantineTheme();
   const { data: sessions = [] } = useAbsSessions();
 
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<number>(
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
   );
@@ -102,9 +103,9 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
 
   return (
     <>
-      <Popover position="bottom-start">
+      <Popover opened={pickerOpen} onChange={setPickerOpen} position="bottom-start">
         <Popover.Target>
-          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }}>
+          <Flex align="center" mb="md" gap={4} style={{ cursor: 'pointer' }} onClick={() => setPickerOpen((o) => !o)}>
             <Text c="violet.4" tt="uppercase" size="sm" fw={600}>
               {formatDate(weekStart, 'dd MMM')} - {formatDate(weekEnd, 'dd MMM')}
             </Text>
@@ -113,11 +114,14 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
         </Popover.Target>
         <Popover.Dropdown>
           <DatePicker
-            value={new Date(weekStart)}
+            value={format(new Date(weekStart), 'yyyy-MM-dd')}
             maxDate={new Date()}
-            onChange={(date) =>
-              date && setWeekStart(startOfDay(date).getTime())
-            }
+            onChange={(dateStr) => {
+              if (!dateStr) return;
+              const [y, m, d] = (dateStr as string).split('-').map(Number);
+              setWeekStart(new Date(y, m - 1, d).getTime());
+              setPickerOpen(false);
+            }}
           />
         </Popover.Dropdown>
       </Popover>
