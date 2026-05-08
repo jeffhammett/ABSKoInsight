@@ -55,7 +55,7 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
       const book = absBooksByItemId[s.libraryItemId];
       if (!book?.reference_pages || !book.duration) continue;
       hasAny = true;
-      pages += s.timeListening * (book.reference_pages / book.duration);
+      pages += s.timeListening * (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
     }
     return hasAny ? Math.round(pages) : null;
   }, [weekSessions, absBooksByItemId]);

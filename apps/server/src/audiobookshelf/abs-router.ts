@@ -160,7 +160,7 @@ export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }):
 // Attach per-book overrides (hidden/deleted/completed/reference_pages) from the local DB
 async function applyOverrides(books: any[], showHidden: boolean): Promise<any[]> {
   const overrides = await AbsOverridesRepository.getAll();
-  const overrideMap: Record<string, { hidden: boolean; deleted: boolean; completed: boolean; reference_pages: number | null; series: string | null }> = {};
+  const overrideMap: Record<string, { hidden: boolean; deleted: boolean; completed: boolean; reference_pages: number | null; series: string | null; playback_speed: number | null }> = {};
   for (const o of overrides) {
     overrideMap[o.abs_item_id] = {
       hidden: Boolean(o.hidden),
@@ -168,12 +168,13 @@ async function applyOverrides(books: any[], showHidden: boolean): Promise<any[]>
       completed: Boolean(o.completed),
       reference_pages: o.reference_pages ?? null,
       series: o.series ?? null,
+      playback_speed: o.playback_speed ?? null,
     };
   }
 
   return books
     .map((b) => {
-      const o = overrideMap[b.id] ?? { hidden: false, deleted: false, completed: false, reference_pages: null, series: null };
+      const o = overrideMap[b.id] ?? { hidden: false, deleted: false, completed: false, reference_pages: null, series: null, playback_speed: null };
       return {
         ...b,
         hidden: o.hidden,
@@ -181,6 +182,7 @@ async function applyOverrides(books: any[], showHidden: boolean): Promise<any[]>
         completed: o.completed,
         reference_pages: o.reference_pages,
         series: o.series !== null ? o.series : b.series,
+        playback_speed: o.playback_speed,
       };
     })
     .filter((b) => !b.deleted && (showHidden || !b.hidden));
@@ -253,12 +255,13 @@ router.get('/books/:id', async (req: Request<{ id: string }>, res: Response) => 
 
 router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params;
-  const { hidden, deleted, completed, reference_pages, series } = req.body as {
+  const { hidden, deleted, completed, reference_pages, series, playback_speed } = req.body as {
     hidden?: boolean;
     deleted?: boolean;
     completed?: boolean;
     reference_pages?: number | null;
     series?: string | null;
+    playback_speed?: number | null;
   };
 
   try {
@@ -268,6 +271,7 @@ router.patch('/books/:id', async (req: Request<{ id: string }>, res: Response) =
     if (completed !== undefined) update.completed = completed;
     if (reference_pages !== undefined) update.reference_pages = reference_pages;
     if (series !== undefined) update.series = series;
+    if (playback_speed !== undefined) update.playback_speed = playback_speed;
 
     await AbsOverridesRepository.upsert(id, update);
     absCache.invalidate();

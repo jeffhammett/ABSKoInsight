@@ -206,7 +206,7 @@ export function StatsPage(): JSX.Element {
       const book = absBooksByItemId[s.libraryItemId];
       if (!book?.reference_pages || !book.duration) continue;
       hasAny = true;
-      total += s.timeListening * (book.reference_pages / book.duration);
+      total += s.timeListening * (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
     }
     return hasAny ? Math.round(total) : null;
   }, [absSessions, absBooksByItemId]);
@@ -217,7 +217,7 @@ export function StatsPage(): JSX.Element {
     for (const s of absSessions) {
       const book = absBooksByItemId[s.libraryItemId];
       if (!book?.reference_pages || !book.duration) continue;
-      const pagesPerSecond = book.reference_pages / book.duration;
+      const pagesPerSecond = (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
       const key = format(new Date(s.startedAt), 'yyyy-MM-dd');
       pagesPerDay[key] = (pagesPerDay[key] ?? 0) + s.timeListening * pagesPerSecond;
     }

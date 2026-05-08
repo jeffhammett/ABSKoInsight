@@ -7,6 +7,7 @@ export interface AbsBookOverride {
   completed: boolean;
   reference_pages: number | null;
   series: string | null;
+  playback_speed: number | null;
 }
 
 export class AbsOverridesRepository {
@@ -35,6 +36,7 @@ export class AbsOverridesRepository {
         completed: false,
         reference_pages: null,
         series: null,
+        playback_speed: null,
         ...data,
       });
     }

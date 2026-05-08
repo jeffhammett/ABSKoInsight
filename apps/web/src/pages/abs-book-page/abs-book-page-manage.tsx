@@ -1,5 +1,6 @@
 import { AbsBook, updateAbsBook, uploadAbsBookCover } from '../../api/audiobookshelf';
 import { AbsBookComplete } from './abs-book-page-complete';
+import { AbsBookPlaybackSpeed } from './abs-book-playback-speed';
 import { AbsBookReferencePages } from './abs-book-reference-pages';
 import { AbsBookSeries } from './abs-book-series';
 import { Button, FileInput, Flex, Switch, Text, Title } from '@mantine/core';
@@ -164,6 +165,8 @@ export function AbsBookPageManage({
       <AbsBookSeries book={book} />
 
       <AbsBookReferencePages book={book} />
+
+      <AbsBookPlaybackSpeed book={book} />
 
       <AbsBookComplete book={book} />
 
