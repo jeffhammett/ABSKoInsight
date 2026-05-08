@@ -115,8 +115,10 @@ export function Calendar<T>({ events, dayRenderer }: CalendarProps<T>): JSX.Elem
           <IconArrowRight size={16} />
         </Button>
       </div>
-      <CalendarWeek currentDate={currentDate} />
-      <div className={style.CalendarGrid}>{dates}</div>
+      <div className={style.CalendarScrollable}>
+        <CalendarWeek currentDate={currentDate} />
+        <div className={style.CalendarGrid}>{dates}</div>
+      </div>
     </div>
   );
 }

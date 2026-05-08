@@ -21,7 +21,7 @@ export function Logo({ onClick, className }: LogoProps): JSX.Element {
       <span className={style.LogoImage}>
         {colorScheme === 'light' ? <LogoSVG /> : <LogoMono />}
       </span>
-      <strong>KoInsight</strong>
+      <strong>ABSKoInsight</strong>
     </NavLink>
   );
 }

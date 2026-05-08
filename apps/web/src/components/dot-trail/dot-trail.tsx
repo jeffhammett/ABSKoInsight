@@ -1,6 +1,6 @@
 import { darken, Tooltip, useComputedColorScheme } from '@mantine/core';
 import { useResizeObserver } from '@mantine/hooks';
-import { startOfDay, startOfWeek, subDays } from 'date-fns';
+import { addDays, startOfDay, startOfWeek, subDays } from 'date-fns';
 import { JSX, ReactNode, useMemo } from 'react';
 
 import style from './dot-trail.module.css';
@@ -45,7 +45,7 @@ export function DotTrail({ percentPerDay, accentRgb = '35, 186, 175' }: DotTrail
     let current = start;
     while (current <= today) {
       days.push(startOfDay(current.getTime()).valueOf());
-      current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+      current = startOfDay(addDays(current, 1));
     }
 
     return days;

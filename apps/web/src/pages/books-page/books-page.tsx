@@ -1,4 +1,4 @@
-import { Book, BookWithData } from '@koinsight/common/types';
+import { BookWithData } from '@koinsight/common/types';
 import {
   Badge,
   Button,
@@ -287,7 +287,6 @@ export function BooksPage(): JSX.Element {
               <Button
                 variant={mode === 'cards' ? 'filled' : 'default'}
                 onClick={() => setMode('cards')}
-                disabled={dataSource !== 'ebook'}
               >
                 <IconCards size={16} />
               </Button>
@@ -329,25 +328,7 @@ export function BooksPage(): JSX.Element {
           <BooksTable books={sorted} />
         )
       ) : (
-        <BooksCards
-          books={(ebooks ?? [])
-            .filter((b) => {
-              if (searchTerm.length === 0) return true;
-              return [b.title, b.authors, b.series]
-                .map((v) => v?.toLowerCase())
-                .some((v) => v?.includes(searchTerm.toLowerCase()));
-            })
-            .sort((a, b) => {
-              const dir = sortBy.direction === 'asc' ? 1 : -1;
-              const aVal = a[sortBy.key as keyof BookWithData];
-              const bVal = b[sortBy.key as keyof BookWithData];
-              if (aVal == null) return 1;
-              if (bVal == null) return -1;
-              if (aVal < bVal) return -1 * dir;
-              if (aVal > bVal) return 1 * dir;
-              return 0;
-            })}
-        />
+        <BooksCards books={sorted} />
       )}
 
       <Modal

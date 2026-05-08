@@ -2,7 +2,10 @@
   --border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-gray-7));
   width: 100%;
   margin: auto;
-  overflow: hidden;
+}
+
+.CalendarScrollable {
+  overflow-x: auto;
 }
 
 .CalendarHeader {
@@ -16,6 +19,7 @@
 .CalendarGrid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  min-width: 700px;
 }
 
 .CalendarDate {

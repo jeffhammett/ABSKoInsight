@@ -1,4 +1,3 @@
-import { BookWithData } from '@koinsight/common/types';
 import { Box, Group, Image, Progress, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -12,12 +11,13 @@ import C from 'clsx';
 import { JSX } from 'react';
 import { useNavigate } from 'react-router';
 import { API_URL } from '../../api/api';
-import { getBookPath } from '../../routes';
+import { getAbsBookPath, getBookPath } from '../../routes';
+import { UnifiedBook } from './books-table';
 
 import style from './books-cards.module.css';
 
 type BooksCardsProps = {
-  books: BookWithData[];
+  books: UnifiedBook[];
 };
 
 export function BooksCards({ books }: BooksCardsProps): JSX.Element {
@@ -31,77 +31,86 @@ export function BooksCards({ books }: BooksCardsProps): JSX.Element {
       className={style.CardGrid}
       style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardWidth}px, 1fr))` }}
     >
-      {books.map((book) => (
-        <Box
-          key={book.id}
-          className={style.Card}
-          role="button"
-          onClick={() => navigate(getBookPath(book.id))}
-        >
-          {book.soft_deleted ? (
-            <Tooltip label="This book is hidden" withArrow>
-              <IconEyeClosed size={16} className={style.BookHiddenIndicator} />
-            </Tooltip>
-          ) : null}
-          <Image
-            src={`${API_URL}/books/${book.id}/cover`}
-            style={{ aspectRatio: '1/1.5' }}
-            w={cardWidth}
-            alt={book.title}
-            fallbackSrc="/book-placeholder-small.png"
-            className={book.soft_deleted ? style.BookHidden : undefined}
-          />
-          <Progress
-            radius={0}
-            h={5}
-            value={(book.unique_read_pages / book.total_pages) * 100}
-            color="koinsight"
-          />
-          <Box px="lg" className={C(style.CardDetails, { [style.Small]: isSmallScreen })}>
-            <Text fz="md" fw={600} style={{ wordBreak: 'break-word', whiteSpace: 'wrap' }}>
-              {book.title}
-            </Text>
-            <Group wrap="nowrap" gap={8} mt="xs">
-              <Tooltip label="Author" position="top" withArrow>
-                <IconUser stroke={1.5} size={16} />
+      {books.map((book) => {
+        const coverSrc =
+          book.source === 'ebook'
+            ? `${API_URL}/books/${book.ebookId}/cover`
+            : `${API_URL}/audiobookshelf/cover/${book.absItemId}`;
+        const href =
+          book.source === 'ebook'
+            ? getBookPath(book.ebookId!)
+            : getAbsBookPath(book.absItemId!);
+
+        return (
+          <Box
+            key={book.key}
+            className={style.Card}
+            role="button"
+            onClick={() => navigate(href)}
+          >
+            {book.soft_deleted ? (
+              <Tooltip label="This book is hidden" withArrow>
+                <IconEyeClosed size={16} className={style.BookHiddenIndicator} />
               </Tooltip>
-              <span className={style.Attribute}>{book.authors ?? 'N/A'}</span>
-            </Group>
-            {!isSmallScreen && (
-              <>
-                <Group wrap="nowrap" gap={8}>
-                  <Tooltip label="Series" position="top" withArrow>
-                    <IconBooks stroke={1.5} size={16} />
-                  </Tooltip>
-                  <span className={style.Attribute}>{book.series}</span>
-                </Group>
-                {book.annotations.length > 0 && (
+            ) : null}
+            <Image
+              src={coverSrc}
+              style={{ aspectRatio: '1/1.5' }}
+              w={cardWidth}
+              alt={book.title}
+              fallbackSrc="/book-placeholder-small.png"
+              className={book.soft_deleted ? style.BookHidden : undefined}
+            />
+            <Progress
+              radius={0}
+              h={5}
+              value={book.progressPct}
+              color={book.source === 'audiobook' ? 'violet' : 'koinsight'}
+            />
+            <Box px="lg" className={C(style.CardDetails, { [style.Small]: isSmallScreen })}>
+              <Text fz="md" fw={600} style={{ wordBreak: 'break-word', whiteSpace: 'wrap' }}>
+                {book.title}
+              </Text>
+              <Group wrap="nowrap" gap={8} mt="xs">
+                <Tooltip label="Author" position="top" withArrow>
+                  <IconUser stroke={1.5} size={16} />
+                </Tooltip>
+                <span className={style.Attribute}>{book.authors ?? 'N/A'}</span>
+              </Group>
+              {!isSmallScreen && (
+                <>
+                  {book.series && (
+                    <Group wrap="nowrap" gap={8}>
+                      <Tooltip label="Series" position="top" withArrow>
+                        <IconBooks stroke={1.5} size={16} />
+                      </Tooltip>
+                      <span className={style.Attribute}>{book.series}</span>
+                    </Group>
+                  )}
+                  {book.annotationsCount > 0 && (
+                    <Group wrap="nowrap" gap={8}>
+                      <Tooltip
+                        label={`${book.annotationsCount} imported annotations`}
+                        position="top"
+                        withArrow
+                      >
+                        <IconHighlight stroke={1.5} size={16} />
+                      </Tooltip>
+                      <span className={style.Attribute}>{book.annotationsCount} annotations</span>
+                    </Group>
+                  )}
                   <Group wrap="nowrap" gap={8}>
-                    <Tooltip
-                      label={`${book.annotations.length} imported annotations`}
-                      position="top"
-                      withArrow
-                    >
-                      <IconHighlight stroke={1.5} size={16} />
+                    <Tooltip label="Progress" position="top" withArrow>
+                      <IconProgress stroke={1.5} size={16} />
                     </Tooltip>
-                    <span className={style.Attribute}>{book.annotations.length} annotations</span>
+                    <span className={style.Attribute}>{book.readLabel} read</span>
                   </Group>
-                )}
-                <Group wrap="nowrap" gap={8}>
-                  <Tooltip label="Pages read" position="top" withArrow>
-                    <IconProgress stroke={1.5} size={16} />
-                  </Tooltip>
-                  <span className={style.Attribute}>
-                    {book.unique_read_pages}
-                    &nbsp;/&nbsp;
-                    {book.total_pages} pages read
-                  </span>
-                </Group>
-              </>
-            )}
+                </>
+              )}
+            </Box>
           </Box>
-        </Box>
-      ))}
+        );
+      })}
     </div>
   );
 }
