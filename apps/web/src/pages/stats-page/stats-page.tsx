@@ -25,9 +25,13 @@ import { ListeningCalendar } from '../../components/statistics/listening-calenda
 import { ReadingCalendar } from '../../components/statistics/reading-calendar';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
+import { AbsMonthStats } from './abs-month-stats';
 import { AbsWeekStats } from './abs-week-stats';
+import { AbsYearStats } from './abs-year-stats';
 import { DayStats } from './day-stats';
+import { MonthStats } from './month-stats';
 import { WeekStats } from './week-stats';
+import { YearStats } from './year-stats';
 
 const DAY_ORDER: Record<string, number> = {
   Sunday: 0,
@@ -369,6 +373,14 @@ export function StatsPage(): JSX.Element {
             Weekly stats
           </Title>
           <WeekStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <Title mt="xl" mb={4} order={3}>
+            Monthly stats
+          </Title>
+          <MonthStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <Title mt="xl" mb={4} order={3}>
+            Yearly stats
+          </Title>
+          <YearStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
         </>
       )}
 
@@ -395,6 +407,14 @@ export function StatsPage(): JSX.Element {
             Weekly stats
           </Title>
           <AbsWeekStats absBooksByItemId={absBooksByItemId} />
+          <Title mt="xl" mb={4} order={3}>
+            Monthly stats
+          </Title>
+          <AbsMonthStats absBooksByItemId={absBooksByItemId} />
+          <Title mt="xl" mb={4} order={3}>
+            Yearly stats
+          </Title>
+          <AbsYearStats absBooksByItemId={absBooksByItemId} />
         </>
       )}
 
@@ -425,6 +445,22 @@ export function StatsPage(): JSX.Element {
             Audiobook weekly stats
           </Title>
           <AbsWeekStats absBooksByItemId={absBooksByItemId} />
+          <Title mt="xl" mb={4} order={3}>
+            E-book monthly stats
+          </Title>
+          <MonthStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <Title mt="xl" mb={4} order={3}>
+            Audiobook monthly stats
+          </Title>
+          <AbsMonthStats absBooksByItemId={absBooksByItemId} />
+          <Title mt="xl" mb={4} order={3}>
+            E-book yearly stats
+          </Title>
+          <YearStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <Title mt="xl" mb={4} order={3}>
+            Audiobook yearly stats
+          </Title>
+          <AbsYearStats absBooksByItemId={absBooksByItemId} />
         </>
       )}
 
