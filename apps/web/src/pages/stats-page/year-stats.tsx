@@ -7,6 +7,7 @@ import {
   IconArrowsVertical,
   IconCaretDownFilled,
   IconClock,
+  IconHeadphones,
   IconPageBreak,
 } from '@tabler/icons-react';
 import {
@@ -23,16 +24,23 @@ import {
 } from 'date-fns';
 import { groupBy, sum } from 'ramda';
 import { useMemo, useState } from 'react';
+import { AbsBook, AbsSession } from '../../api/audiobookshelf';
+import { StatisticProps } from '../../components/statistics/statistic';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 
 export function YearStats({
   stats,
   booksByMd5,
+  absSessions,
+  absBooksByItemId = {},
 }: {
   stats: PageStat[];
   booksByMd5: Record<string, Book>;
+  absSessions?: AbsSession[];
+  absBooksByItemId?: Record<string, AbsBook>;
 }) {
+  const combined = absSessions !== undefined;
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
 
@@ -50,10 +58,18 @@ export function YearStats({
     return stats?.filter(({ start_time }) => start_time >= yearStart && start_time <= yearEnd);
   }, [stats, yearStart, yearEnd]);
 
+  const yearSessions = useMemo(() => {
+    if (!combined) return [];
+    return absSessions!.filter((s) => s.startedAt >= yearStart && s.startedAt <= yearEnd);
+  }, [absSessions, yearStart, yearEnd, combined]);
+
   const yearDaysPassed = useMemo(
     () => differenceInCalendarDays(yearEnd, yearStart) + 1,
     [yearStart, yearEnd]
   );
+
+  const ebookTotalTime = useMemo(() => sum(yearData?.map((s) => s.duration) ?? []), [yearData]);
+  const absTotalTime = useMemo(() => sum(yearSessions.map((s) => s.timeListening)), [yearSessions]);
 
   const pagesRead = useMemo(
     () =>
@@ -68,6 +84,19 @@ export function YearStats({
       ),
     [yearData, booksByMd5]
   );
+
+  const estimatedAbsPagesRead = useMemo(() => {
+    if (!combined || !Object.keys(absBooksByItemId).length) return null;
+    let pages = 0;
+    let hasAny = false;
+    for (const s of yearSessions) {
+      const book = absBooksByItemId[s.libraryItemId];
+      if (!book?.reference_pages || !book.duration) continue;
+      hasAny = true;
+      pages += s.timeListening * (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
+    }
+    return hasAny ? Math.round(pages) : null;
+  }, [combined, yearSessions, absBooksByItemId]);
 
   const avgPagesPerDay = useMemo(() => {
     const statsPerDay = groupBy(
@@ -90,21 +119,58 @@ export function YearStats({
   }, [yearData, booksByMd5]);
 
   const perMonth = useMemo(() => {
-    const result = [];
+    const result: Record<string, unknown>[] = [];
     let month = yearStart;
     while (isBefore(month, yearEnd)) {
       const mEnd = Math.min(endOfMonth(month).getTime(), yearEnd);
       const monthStats = stats?.filter(
         ({ start_time }) => start_time >= month && start_time <= mEnd
       ) ?? [];
-      result.push({
-        month: format(month, 'MMM'),
-        duration: sum(monthStats.map((s) => s.duration)),
-      });
+      if (combined) {
+        const monthSessions = absSessions!.filter(
+          (s) => s.startedAt >= month && s.startedAt <= mEnd
+        );
+        result.push({
+          month: format(month, 'MMM'),
+          ebook: sum(monthStats.map((s) => s.duration)),
+          audiobook: sum(monthSessions.map((s) => s.timeListening)),
+        });
+      } else {
+        result.push({
+          month: format(month, 'MMM'),
+          duration: sum(monthStats.map((s) => s.duration)),
+        });
+      }
       month = addMonths(month, 1).getTime();
     }
     return result;
-  }, [stats, yearStart, yearEnd]);
+  }, [stats, absSessions, yearStart, yearEnd, combined]);
+
+  const statsData = useMemo((): StatisticProps[] => {
+    if (combined) {
+      const combinedTime = ebookTotalTime + absTotalTime;
+      return [
+        { label: 'Read time', value: formatSecondsToHumanReadable(ebookTotalTime), icon: IconClock },
+        { label: 'Listen time', value: formatSecondsToHumanReadable(absTotalTime), icon: IconHeadphones },
+        { label: 'Combined pages', value: pagesRead + (estimatedAbsPagesRead ?? 0), icon: IconPageBreak },
+        {
+          label: 'Average time per day',
+          value: formatSecondsToHumanReadable(Math.round(combinedTime / yearDaysPassed)),
+          icon: IconClock,
+        },
+      ];
+    }
+    return [
+      { label: 'Read time', value: formatSecondsToHumanReadable(ebookTotalTime), icon: IconClock },
+      { label: 'Pages read', value: pagesRead, icon: IconPageBreak },
+      { label: 'Average pages per day', value: avgPagesPerDay, icon: IconArrowsVertical },
+      {
+        label: 'Average time per day',
+        value: formatSecondsToHumanReadable(Math.round(ebookTotalTime / yearDaysPassed)),
+        icon: IconClock,
+      },
+    ];
+  }, [combined, ebookTotalTime, absTotalTime, pagesRead, estimatedAbsPagesRead, avgPagesPerDay, yearDaysPassed]);
 
   return (
     <>
@@ -129,32 +195,7 @@ export function YearStats({
           />
         </Popover.Dropdown>
       </Popover>
-      <Statistics
-        data={[
-          {
-            label: 'Read time',
-            value: formatSecondsToHumanReadable(sum(yearData?.map((stat) => stat.duration) ?? [])),
-            icon: IconClock,
-          },
-          {
-            label: 'Pages read',
-            value: pagesRead,
-            icon: IconPageBreak,
-          },
-          {
-            label: 'Average pages per day',
-            value: avgPagesPerDay,
-            icon: IconArrowsVertical,
-          },
-          {
-            label: 'Average time per day',
-            value: formatSecondsToHumanReadable(
-              Math.round(sum(yearData?.map((stat) => stat.duration) ?? []) / yearDaysPassed)
-            ),
-            icon: IconClock,
-          },
-        ]}
-      />
+      <Statistics data={statsData} />
       <AreaChart
         h={300}
         mt="sm"
@@ -165,13 +206,28 @@ export function YearStats({
         type="stacked"
         valueFormatter={(value) => formatSecondsToHumanReadable(value)}
         curveType="monotone"
-        series={[
-          {
-            name: 'duration',
-            label: 'Reading time',
-            color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
-          },
-        ]}
+        series={
+          combined
+            ? [
+                {
+                  name: 'ebook',
+                  label: 'Reading time',
+                  color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
+                },
+                {
+                  name: 'audiobook',
+                  label: 'Listening time',
+                  color: colorScheme === 'dark' ? 'violet.3' : 'violet.7',
+                },
+              ]
+            : [
+                {
+                  name: 'duration',
+                  label: 'Reading time',
+                  color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
+                },
+              ]
+        }
       />
     </>
   );

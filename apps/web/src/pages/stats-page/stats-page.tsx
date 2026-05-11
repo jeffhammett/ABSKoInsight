@@ -438,29 +438,17 @@ export function StatsPage(): JSX.Element {
             showAudiobooks
           />
           <Title mt="xl" mb={4} order={3}>
-            E-book weekly stats
+            Weekly stats
           </Title>
-          <WeekStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <WeekStats stats={stats} booksByMd5={booksByMd5 ?? {}} absSessions={absSessions} absBooksByItemId={absBooksByItemId} />
           <Title mt="xl" mb={4} order={3}>
-            Audiobook weekly stats
+            Monthly stats
           </Title>
-          <AbsWeekStats absBooksByItemId={absBooksByItemId} />
+          <MonthStats stats={stats} booksByMd5={booksByMd5 ?? {}} absSessions={absSessions} absBooksByItemId={absBooksByItemId} />
           <Title mt="xl" mb={4} order={3}>
-            E-book monthly stats
+            Yearly stats
           </Title>
-          <MonthStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
-          <Title mt="xl" mb={4} order={3}>
-            Audiobook monthly stats
-          </Title>
-          <AbsMonthStats absBooksByItemId={absBooksByItemId} />
-          <Title mt="xl" mb={4} order={3}>
-            E-book yearly stats
-          </Title>
-          <YearStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
-          <Title mt="xl" mb={4} order={3}>
-            Audiobook yearly stats
-          </Title>
-          <AbsYearStats absBooksByItemId={absBooksByItemId} />
+          <YearStats stats={stats} booksByMd5={booksByMd5 ?? {}} absSessions={absSessions} absBooksByItemId={absBooksByItemId} />
         </>
       )}
 

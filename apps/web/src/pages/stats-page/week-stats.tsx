@@ -7,6 +7,7 @@ import {
   IconArrowsVertical,
   IconCaretDownFilled,
   IconClock,
+  IconHeadphones,
   IconPageBreak,
 } from '@tabler/icons-react';
 import {
@@ -22,16 +23,23 @@ import {
 } from 'date-fns';
 import { groupBy, sum } from 'ramda';
 import { useMemo, useState } from 'react';
+import { AbsBook, AbsSession } from '../../api/audiobookshelf';
+import { StatisticProps } from '../../components/statistics/statistic';
 import { Statistics } from '../../components/statistics/statistics';
 import { formatSecondsToHumanReadable } from '../../utils/dates';
 
 export function WeekStats({
   stats,
   booksByMd5,
+  absSessions,
+  absBooksByItemId = {},
 }: {
   stats: PageStat[];
   booksByMd5: Record<string, Book>;
+  absSessions?: AbsSession[];
+  absBooksByItemId?: Record<string, AbsBook>;
 }) {
+  const combined = absSessions !== undefined;
   const colorScheme = useComputedColorScheme();
   const { colors } = useMantineTheme();
 
@@ -49,10 +57,18 @@ export function WeekStats({
     return stats?.filter(({ start_time }) => start_time >= weekStart && start_time <= weekEnd);
   }, [stats, weekStart, weekEnd]);
 
+  const weekSessions = useMemo(() => {
+    if (!combined) return [];
+    return absSessions!.filter((s) => s.startedAt >= weekStart && s.startedAt <= weekEnd);
+  }, [absSessions, weekStart, weekEnd, combined]);
+
   const weekDaysPassed = useMemo(
     () => differenceInCalendarDays(weekEnd, weekStart) + 1,
     [weekStart, weekEnd]
   );
+
+  const ebookTotalTime = useMemo(() => sum(weekData?.map((s) => s.duration) ?? []), [weekData]);
+  const absTotalTime = useMemo(() => sum(weekSessions.map((s) => s.timeListening)), [weekSessions]);
 
   const pagesRead = useMemo(
     () =>
@@ -67,6 +83,19 @@ export function WeekStats({
       ),
     [weekData, booksByMd5]
   );
+
+  const estimatedAbsPagesRead = useMemo(() => {
+    if (!combined || !Object.keys(absBooksByItemId).length) return null;
+    let pages = 0;
+    let hasAny = false;
+    for (const s of weekSessions) {
+      const book = absBooksByItemId[s.libraryItemId];
+      if (!book?.reference_pages || !book.duration) continue;
+      hasAny = true;
+      pages += s.timeListening * (book.playback_speed ?? 1.5) * (book.reference_pages / book.duration);
+    }
+    return hasAny ? Math.round(pages) : null;
+  }, [combined, weekSessions, absBooksByItemId]);
 
   const avgPagesPerDay = useMemo(() => {
     const statsPerDay = groupBy((stat: PageStat) =>
@@ -89,22 +118,53 @@ export function WeekStats({
   }, [weekData, booksByMd5]);
 
   const perDay = useMemo(() => {
-    const perDayResult = [];
-
+    const result: Record<string, unknown>[] = [];
     let day = weekStart;
     while (isBefore(day, weekEnd)) {
       const dayStats = stats?.filter((stat) => isSameDay(stat.start_time, day)) ?? [];
-
-      perDayResult.push({
-        day: format(day, 'dd MMM yyyy'),
-        duration: sum(dayStats.map((s) => s.duration)),
-      });
-
+      if (combined) {
+        const daySessions = absSessions!.filter((s) => isSameDay(s.startedAt, day));
+        result.push({
+          day: format(day, 'dd MMM yyyy'),
+          ebook: sum(dayStats.map((s) => s.duration)),
+          audiobook: sum(daySessions.map((s) => s.timeListening)),
+        });
+      } else {
+        result.push({
+          day: format(day, 'dd MMM yyyy'),
+          duration: sum(dayStats.map((s) => s.duration)),
+        });
+      }
       day = addDays(day, 1).getTime();
     }
+    return result;
+  }, [stats, absSessions, weekStart, weekEnd, combined]);
 
-    return perDayResult;
-  }, [stats, weekStart, weekEnd]);
+  const statsData = useMemo((): StatisticProps[] => {
+    if (combined) {
+      const combinedTime = ebookTotalTime + absTotalTime;
+      return [
+        { label: 'Read time', value: formatSecondsToHumanReadable(ebookTotalTime), icon: IconClock },
+        { label: 'Listen time', value: formatSecondsToHumanReadable(absTotalTime), icon: IconHeadphones },
+        { label: 'Combined pages', value: pagesRead + (estimatedAbsPagesRead ?? 0), icon: IconPageBreak },
+        {
+          label: 'Average time per day',
+          value: formatSecondsToHumanReadable(Math.round(combinedTime / weekDaysPassed)),
+          icon: IconClock,
+        },
+      ];
+    }
+    return [
+      { label: 'Read time', value: formatSecondsToHumanReadable(ebookTotalTime), icon: IconClock },
+      { label: 'Pages read', value: pagesRead, icon: IconPageBreak },
+      { label: 'Average pages per day', value: avgPagesPerDay, icon: IconArrowsVertical },
+      {
+        label: 'Average time per day',
+        value: formatSecondsToHumanReadable(Math.round(ebookTotalTime / weekDaysPassed)),
+        icon: IconClock,
+      },
+    ];
+  }, [combined, ebookTotalTime, absTotalTime, pagesRead, estimatedAbsPagesRead, avgPagesPerDay, weekDaysPassed]);
 
   return (
     <>
@@ -130,32 +190,7 @@ export function WeekStats({
           />
         </Popover.Dropdown>
       </Popover>
-      <Statistics
-        data={[
-          {
-            label: 'Read time',
-            value: formatSecondsToHumanReadable(sum(weekData?.map((stat) => stat.duration) ?? [])),
-            icon: IconClock,
-          },
-          {
-            label: 'Pages read',
-            value: pagesRead,
-            icon: IconPageBreak,
-          },
-          {
-            label: 'Average pages per day',
-            value: avgPagesPerDay,
-            icon: IconArrowsVertical,
-          },
-          {
-            label: 'Average time per day',
-            value: formatSecondsToHumanReadable(
-              Math.round(sum(weekData?.map((stat) => stat.duration) ?? []) / weekDaysPassed)
-            ),
-            icon: IconClock,
-          },
-        ]}
-      />
+      <Statistics data={statsData} />
       <AreaChart
         h={300}
         mt="sm"
@@ -166,13 +201,28 @@ export function WeekStats({
         type="stacked"
         valueFormatter={(value) => formatSecondsToHumanReadable(value)}
         curveType="monotone"
-        series={[
-          {
-            name: 'duration',
-            label: 'Reading time',
-            color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
-          },
-        ]}
+        series={
+          combined
+            ? [
+                {
+                  name: 'ebook',
+                  label: 'Reading time',
+                  color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
+                },
+                {
+                  name: 'audiobook',
+                  label: 'Listening time',
+                  color: colorScheme === 'dark' ? 'violet.3' : 'violet.7',
+                },
+              ]
+            : [
+                {
+                  name: 'duration',
+                  label: 'Reading time',
+                  color: colorScheme === 'dark' ? 'koinsight.3' : 'koinsight.7',
+                },
+              ]
+        }
       />
     </>
   );
