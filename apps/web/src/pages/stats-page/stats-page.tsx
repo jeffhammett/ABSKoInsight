@@ -368,7 +368,7 @@ export function StatsPage(): JSX.Element {
           <Title mt="xl" mb={4} order={3}>
             Weekly stats
           </Title>
-          <WeekStats stats={stats} booksByMd5={booksByMd5} />
+          <WeekStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
         </>
       )}
 
@@ -417,6 +417,14 @@ export function StatsPage(): JSX.Element {
             showEbooks
             showAudiobooks
           />
+          <Title mt="xl" mb={4} order={3}>
+            E-book weekly stats
+          </Title>
+          <WeekStats stats={stats} booksByMd5={booksByMd5 ?? {}} />
+          <Title mt="xl" mb={4} order={3}>
+            Audiobook weekly stats
+          </Title>
+          <AbsWeekStats absBooksByItemId={absBooksByItemId} />
         </>
       )}
 

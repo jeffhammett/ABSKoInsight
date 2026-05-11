@@ -117,7 +117,8 @@ export function AbsWeekStats({ absBooksByItemId = {} }: { absBooksByItemId?: Rec
             onChange={(dateStr) => {
               if (!dateStr) return;
               const [y, m, d] = (dateStr as string).split('-').map(Number);
-              setWeekStart(new Date(y, m - 1, d).getTime());
+              const picked = new Date(y, m - 1, d);
+              setWeekStart(startOfWeek(picked, { weekStartsOn: 1 }).getTime());
             }}
           />
         </Popover.Dropdown>

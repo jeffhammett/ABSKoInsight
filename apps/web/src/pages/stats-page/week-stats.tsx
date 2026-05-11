@@ -65,7 +65,7 @@ export function WeekStats({
           }
         }, 0) ?? 0
       ),
-    [weekData]
+    [weekData, booksByMd5]
   );
 
   const avgPagesPerDay = useMemo(() => {
@@ -84,8 +84,9 @@ export function WeekStats({
         }, 0) ?? 0
     );
 
+    if (pagesPerDay.length === 0) return 0;
     return Math.round(sum(pagesPerDay) / pagesPerDay.length);
-  }, [weekData]);
+  }, [weekData, booksByMd5]);
 
   const perDay = useMemo(() => {
     const perDayResult = [];
@@ -123,7 +124,8 @@ export function WeekStats({
             onChange={(dateStr) => {
               if (!dateStr) return;
               const [y, m, d] = (dateStr as string).split('-').map(Number);
-              setWeekStart(new Date(y, m - 1, d).getTime());
+              const picked = new Date(y, m - 1, d);
+              setWeekStart(startOfWeek(picked, { weekStartsOn: 1 }).getTime());
             }}
           />
         </Popover.Dropdown>
