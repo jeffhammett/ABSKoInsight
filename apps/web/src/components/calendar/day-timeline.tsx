@@ -10,21 +10,30 @@ const MIN_HEIGHT = 2;
 
 type Session = { startTimeMs: number; durationSecs: number };
 
-// Group by book: one bar per book, at the first read of the day, height = sum of page durations.
+// Group consecutive page reads into sessions using a gap threshold.
 // start_time from PageStat is in milliseconds (server multiplies DB seconds by 1000).
 // duration stays in seconds — same unit as ABS timeListening, so bars are directly comparable.
-function groupPageStatsByBook(events: PageStat[]): Session[] {
-  const byBook = new Map<string, Session>();
-  for (const e of events) {
-    const existing = byBook.get(e.book_md5);
-    if (!existing) {
-      byBook.set(e.book_md5, { startTimeMs: e.start_time, durationSecs: e.duration });
+function groupPageStatsIntoSessions(events: PageStat[], gapThresholdMs = 600_000): Session[] {
+  if (events.length === 0) return [];
+  const sorted = [...events].sort((a, b) => a.start_time - b.start_time);
+  const sessions: Session[] = [];
+  let start = sorted[0].start_time;
+  let duration = sorted[0].duration;
+  let end = sorted[0].start_time + sorted[0].duration * 1000;
+  for (let i = 1; i < sorted.length; i++) {
+    const stat = sorted[i];
+    if (stat.start_time - end <= gapThresholdMs) {
+      duration += stat.duration;
+      end = Math.max(end, stat.start_time + stat.duration * 1000);
     } else {
-      if (e.start_time < existing.startTimeMs) existing.startTimeMs = e.start_time;
-      existing.durationSecs += e.duration;
+      sessions.push({ startTimeMs: start, durationSecs: duration });
+      start = stat.start_time;
+      duration = stat.duration;
+      end = stat.start_time + stat.duration * 1000;
     }
   }
-  return Array.from(byBook.values());
+  sessions.push({ startTimeMs: start, durationSecs: duration });
+  return sessions;
 }
 
 // Both ebook start_time (ms) and ABS startedAt (ms) go through here.
@@ -56,7 +65,7 @@ export function DayTimeline({
 
   const PADDING_TOP = showAxisLabels ? 4 : 0;
 
-  const readingSessions = groupPageStatsByBook(readingEvents);
+  const readingSessions = groupPageStatsIntoSessions(readingEvents);
 
   const bars: { x: number; h: number; color: string }[] = [
     ...readingSessions.map((s) => ({
