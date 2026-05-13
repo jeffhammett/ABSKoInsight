@@ -198,8 +198,8 @@ export function WeekStats({
         dataKey="day"
         gridAxis="none"
         withYAxis={false}
-        type="stacked"
-        valueFormatter={(value) => formatSecondsToHumanReadable(value)}
+        type={combined ? 'default' : 'stacked'}
+        valueFormatter={(value) => value === 0 ? '0 minutes' : formatSecondsToHumanReadable(value)}
         curveType="monotone"
         series={
           combined
