@@ -22,7 +22,7 @@ export class BooksService {
 
   static getLastOpen(stats: PageStat[]): number {
     if (stats.length === 0) return 0;
-    return stats.reduce((acc, stat) => Math.max(acc, stat.start_time), 0);
+    return Math.round(stats.reduce((acc, stat) => Math.max(acc, stat.start_time), 0) / 1000);
   }
 
   static getReadPerDay(stats: PageStat[]): Record<string, number> {
