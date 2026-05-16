@@ -1,8 +1,9 @@
-import { AbsBook, updateAbsBook, uploadAbsBookCover } from '../../api/audiobookshelf';
+import { AbsBook, AbsSession, updateAbsBook, uploadAbsBookCover } from '../../api/audiobookshelf';
 import { AbsBookComplete } from './abs-book-page-complete';
 import { AbsBookPlaybackSpeed } from './abs-book-playback-speed';
 import { AbsBookReferencePages } from './abs-book-reference-pages';
 import { AbsBookSeries } from './abs-book-series';
+import { AbsBookSessions } from './abs-book-sessions';
 import { Button, FileInput, Flex, Switch, Text, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
@@ -14,9 +15,11 @@ import { RoutePath } from '../../routes';
 
 export function AbsBookPageManage({
   book,
+  sessions,
   onCoverUploaded,
 }: {
   book: AbsBook;
+  sessions: AbsSession[];
   onCoverUploaded: () => void;
 }) {
   const navigate = useNavigate();
@@ -136,6 +139,8 @@ export function AbsBookPageManage({
 
   return (
     <Flex direction="column" align="flex-start" gap="xl">
+      <AbsBookSessions sessions={sessions} />
+
       {/* Cover upload */}
       <div>
         <Title order={3} mb="md">

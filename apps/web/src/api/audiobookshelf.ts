@@ -42,7 +42,7 @@ export interface AbsSession {
   dayOfWeek: string;
   startedAt: number;
   updatedAt: number;
-  deviceDescription?: string;
+  deviceInfo?: { clientName?: string; deviceName?: string };
 }
 
 interface AbsSessionsResponse {
@@ -118,4 +118,8 @@ export async function verifyAbsConnection(abs_url: string, abs_api_key: string) 
 
 export async function refreshAbsCache() {
   return fetchFromAPI<{ message: string }>('audiobookshelf/refresh', 'POST');
+}
+
+export async function blockAbsSession(id: string) {
+  return fetchFromAPI<{ message: string }>(`audiobookshelf/sessions/${id}`, 'DELETE');
 }

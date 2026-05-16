@@ -7,17 +7,26 @@ export class StatsRepository {
   }
 
   static async getAll(): Promise<PageStat[]> {
+    const blocked = await db('blocked_page_stats').pluck('page_stat_id');
     const stats = await db<PageStat>('page_stat')
       .join('book', 'page_stat.book_md5', 'book.md5')
       .where({ 'book.soft_deleted': false })
+      .whereNotIn('page_stat.id', blocked)
       .select('page_stat.*');
 
     return stats.map(this.updateStartTime);
   }
 
   static async getByBookMD5(book_md5: string): Promise<PageStat[]> {
-    const bookStats = await db<PageStat>('page_stat').where({ book_md5 });
+    const blocked = await db('blocked_page_stats').pluck('page_stat_id');
+    const bookStats = await db<PageStat>('page_stat')
+      .where({ book_md5 })
+      .whereNotIn('id', blocked);
     return bookStats.map(this.updateStartTime);
+  }
+
+  static async blockPageStat(id: number): Promise<void> {
+    await db('blocked_page_stats').insert({ page_stat_id: id }).onConflict('page_stat_id').ignore();
   }
 
   static async insert(data: PageStat): Promise<number[]> {

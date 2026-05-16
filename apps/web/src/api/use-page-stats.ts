@@ -21,3 +21,7 @@ export function usePageStats() {
 export function useBookStats(bookMd5: string) {
   return useSWR(`stats/${bookMd5}`, () => fetchFromAPI<PageStat[]>(`stats/${bookMd5}`));
 }
+
+export async function blockPageStat(id: number) {
+  return fetchFromAPI<{ message: string }>(`stats/page-stats/${id}`, 'DELETE');
+}

@@ -7,6 +7,7 @@ export type KoReaderPageStat = {
 };
 
 export type PageStat = Omit<KoReaderPageStat, 'id_book'> & {
+  id?: number;
   device_id: string;
   book_md5: string;
 };

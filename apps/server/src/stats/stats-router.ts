@@ -38,4 +38,14 @@ router.get('/:book_md5', async (req: Request<{ book_md5: string }>, res: Respons
   res.status(200).json(book);
 });
 
+router.delete('/page-stats/:id', async (req: Request<{ id: string }>, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'Invalid id' });
+    return;
+  }
+  await StatsRepository.blockPageStat(id);
+  res.status(200).json({ message: 'Session blocked' });
+});
+
 export { router as statsRouter };

@@ -4,6 +4,7 @@ import { rename } from 'fs/promises';
 import multer from 'multer';
 import path from 'path';
 import { appConfig } from '../config';
+import { db } from '../knex';
 import { SettingsRepository } from '../settings/settings-repository';
 import { AbsOverridesRepository } from './abs-overrides-repository';
 
@@ -73,6 +74,8 @@ export async function fetchAllSessions(
   const maxPages = 20;
   let truncated = false;
 
+  const blockedIds = new Set<string>(await db('blocked_abs_sessions').pluck('session_id'));
+
   while (page < maxPages) {
     const data = await absRequest<{ sessions?: any[] }>(
       absUrl,
@@ -80,7 +83,8 @@ export async function fetchAllSessions(
       `/api/me/listening-sessions?page=${page}&itemsPerPage=${itemsPerPage}`
     );
     const sessions = (data.sessions ?? []).filter(
-      (s: any) => s.deviceInfo?.clientName !== 'ABS-KoSync-Bridge'
+      (s: any) =>
+        s.deviceInfo?.clientName !== 'ABS-KoSync-Bridge' && !blockedIds.has(s.id as string)
     );
     all.push(...sessions);
     if (sessions.length < itemsPerPage) break;
@@ -415,6 +419,19 @@ router.post('/verify', async (req, res) => {
     res.json({ ok: true, message: 'Connection successful', username: me.username });
   } catch (err: any) {
     res.json({ ok: false, message: err?.message ?? 'Connection failed' });
+  }
+});
+
+// Block a session from appearing in KoInsight (does not touch ABS)
+router.delete('/sessions/:id', async (req: Request<{ id: string }>, res: Response) => {
+  const { id } = req.params;
+  try {
+    await db('blocked_abs_sessions').insert({ session_id: id }).onConflict('session_id').ignore();
+    absCache.invalidate();
+    res.json({ message: 'Session blocked' });
+  } catch (err: any) {
+    console.error('ABS session block error:', err);
+    res.status(500).json({ error: 'Failed to block session' });
   }
 });
 

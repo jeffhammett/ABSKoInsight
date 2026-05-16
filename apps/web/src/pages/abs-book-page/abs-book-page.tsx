@@ -88,6 +88,7 @@ export function AbsBookPage(): JSX.Element {
           <Box py={20}>
             <AbsBookPageManage
               book={book}
+              sessions={sessions}
               onCoverUploaded={() => setCoverVersion((v) => v + 1)}
             />
           </Box>
