@@ -4,6 +4,7 @@ import { JSX } from 'react';
 import { BookComplete } from './book-complete';
 import { BookDelete } from './book-delete';
 import { BookHide } from './book-hide';
+import { BookMerge } from './book-merge';
 import { BookReferencePages } from './book-reference-pages';
 import { BookSeries } from './book-series';
 import { BookPageSessions } from './book-page-sessions';
@@ -21,6 +22,7 @@ export function BookPageManage({ book }: BookPageManageProps): JSX.Element {
       <BookReferencePages book={book} />
       <BookUploadCover book={book} />
       <BookComplete book={book} />
+      <BookMerge book={book} />
       <BookHide book={book} />
       <BookDelete book={book} />
     </Flex>

@@ -134,4 +134,56 @@ export class BooksRepository {
   static async setReferencePages(id: number, referencePages: number | null) {
     return db<Book>('book').where({ id }).update({ reference_pages: referencePages });
   }
+
+  static async merge(sourceId: number, targetId: number): Promise<void> {
+    const [source, target] = await Promise.all([
+      BooksRepository.getById(sourceId),
+      BooksRepository.getById(targetId),
+    ]);
+    if (!source || !target) throw new Error('Book not found');
+
+    await db.transaction(async (trx) => {
+      // Move page_stat rows, skipping any that conflict with existing entries on the target
+      await trx.raw(
+        `INSERT OR IGNORE INTO page_stat (book_md5, device_id, page, start_time, duration, total_pages)
+         SELECT ?, device_id, page, start_time, duration, total_pages
+         FROM page_stat WHERE book_md5 = ?`,
+        [target.md5, source.md5]
+      );
+      await trx('page_stat').where({ book_md5: source.md5 }).delete();
+
+      // Merge book_device rows — sum accumulated stats, keep max last_open/pages
+      const sourceDevices = await trx<BookDevice>('book_device').where({ book_md5: source.md5 });
+      for (const sd of sourceDevices) {
+        const existing = await trx<BookDevice>('book_device')
+          .where({ book_md5: target.md5, device_id: sd.device_id })
+          .first();
+        if (existing) {
+          await trx<BookDevice>('book_device')
+            .where({ book_md5: target.md5, device_id: sd.device_id })
+            .update({
+              total_read_time: existing.total_read_time + sd.total_read_time,
+              total_read_pages: existing.total_read_pages + sd.total_read_pages,
+              highlights: existing.highlights + sd.highlights,
+              notes: existing.notes + sd.notes,
+              pages: Math.max(existing.pages, sd.pages),
+              last_open: Math.max(existing.last_open, sd.last_open),
+            });
+        } else {
+          await trx<BookDevice>('book_device').insert({ ...sd, id: undefined, book_md5: target.md5 });
+        }
+      }
+      await trx<BookDevice>('book_device').where({ book_md5: source.md5 }).delete();
+
+      // Merge genres — add any source genres not already on the target
+      await trx.raw(
+        `INSERT OR IGNORE INTO book_genre (book_md5, genre_id)
+         SELECT ?, genre_id FROM book_genre WHERE book_md5 = ?`,
+        [target.md5, source.md5]
+      );
+
+      // Soft-delete the source book
+      await trx<Book>('book').where({ id: source.id }).update({ soft_deleted: true });
+    });
+  }
 }

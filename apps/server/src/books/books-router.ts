@@ -113,6 +113,31 @@ router.put('/:bookId/series', getBookById, async (req: Request, res: Response) =
 });
 
 /**
+ * Merge source book's stats into this book, then soft-delete the source
+ */
+router.post('/:bookId/merge', getBookById, async (req: Request, res: Response) => {
+  const target = req.book!;
+  const { sourceId } = req.body as { sourceId?: number };
+
+  if (!sourceId) {
+    res.status(400).json({ error: 'sourceId is required' });
+    return;
+  }
+  if (sourceId === target.id) {
+    res.status(400).json({ error: 'Cannot merge a book into itself' });
+    return;
+  }
+
+  try {
+    await BooksRepository.merge(sourceId, target.id);
+    res.status(200).json({ message: 'Books merged' });
+  } catch (error: any) {
+    console.error('Merge error:', error);
+    res.status(500).json({ error: error?.message ?? 'Failed to merge books' });
+  }
+});
+
+/**
  * Updates a book's reference pages
  */
 router.put('/:bookId/reference_pages', getBookById, async (req: Request, res: Response) => {

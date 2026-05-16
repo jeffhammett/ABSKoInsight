@@ -16,6 +16,10 @@ export async function deleteBook(id: Book['id']) {
   return fetchFromAPI<{ message: string }>(`books/${id}`, 'DELETE');
 }
 
+export async function mergeBooks(targetId: Book['id'], sourceId: Book['id']) {
+  return fetchFromAPI<{ message: string }>(`books/${targetId}/merge`, 'POST', { sourceId });
+}
+
 export async function hideBook(id: Book['id']) {
   return fetchFromAPI<{ message: string }>(`books/${id}/hide`, 'PUT', { hidden: true });
 }
