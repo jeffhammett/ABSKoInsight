@@ -134,9 +134,11 @@ export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }):
   }
 
   const listeningTimeMap: Record<string, number> = {};
+  const lastListenedMap: Record<string, number> = {};
   for (const session of allSessions) {
     const itemId = session.libraryItemId as string;
     listeningTimeMap[itemId] = (listeningTimeMap[itemId] ?? 0) + (session.timeListening ?? 0);
+    lastListenedMap[itemId] = Math.max(lastListenedMap[itemId] ?? 0, session.startedAt ?? 0);
   }
 
   const books = allItems.map((item: any) => {
@@ -154,7 +156,7 @@ export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }):
       listeningTime: listeningTimeMap[item.id] ?? 0,
       isFinished: progress.isFinished ?? false,
       finishedAt: progress.finishedAt ?? null,
-      lastUpdate: progress.lastUpdate ?? null,
+      lastUpdate: lastListenedMap[item.id] ?? progress.lastUpdate ?? null,
       source: 'audiobookshelf',
     };
   });
