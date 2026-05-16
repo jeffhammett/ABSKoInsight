@@ -245,7 +245,7 @@ export function HomePage(): JSX.Element {
         const pct = b.progress * 100;
         return pct > 0 && pct < 100 && !b.completed && !b.hidden && !b.deleted;
       })
-      .sort((a, b) => (b.lastUpdate ?? b.addedAt ?? 0) - (a.lastUpdate ?? a.addedAt ?? 0));
+      .sort((a, b) => (b.lastUpdate ?? 0) - (a.lastUpdate ?? 0));
   }, [absBooks, showAudiobooks]);
 
   const media = useMediaQuery('(max-width: 62em)');

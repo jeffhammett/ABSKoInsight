@@ -72,7 +72,7 @@ export function SeriesPage(): JSX.Element {
         readLabel: book.completed ? '100%' : `${Math.round(book.progress * 100)}%`,
         totalPages: book.reference_pages ? String(book.reference_pages) : 'N/A',
         totalReadTime: book.listeningTime ?? 0,
-        lastActivityMs: hasProgress ? (book.lastUpdate ?? book.addedAt ?? 0) : 0,
+        lastActivityMs: book.lastUpdate ?? 0,
         completed: !!book.completed,
       };
     });

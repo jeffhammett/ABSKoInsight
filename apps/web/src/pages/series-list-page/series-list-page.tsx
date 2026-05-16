@@ -86,7 +86,7 @@ function buildSeriesMap(
       entry.audiobookCount++;
       entry.totalCount++;
       if (b.completed || b.isFinished || b.progress >= 1) entry.completedCount++;
-      const lastMs = b.lastUpdate ?? b.addedAt ?? 0;
+      const lastMs = b.lastUpdate ?? 0;
       if (lastMs > entry.lastActivityMs) entry.lastActivityMs = lastMs;
     }
   }
