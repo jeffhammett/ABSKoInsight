@@ -156,7 +156,7 @@ export async function fetchAbsBooks(config: { absUrl: string; apiKey: string }):
       listeningTime: listeningTimeMap[item.id] ?? 0,
       isFinished: progress.isFinished ?? false,
       finishedAt: progress.finishedAt ?? null,
-      lastUpdate: lastListenedMap[item.id] ?? progress.lastUpdate ?? null,
+      lastUpdate: lastListenedMap[item.id] ?? null,
       source: 'audiobookshelf',
     };
   });
