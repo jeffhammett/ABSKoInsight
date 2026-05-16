@@ -11,8 +11,8 @@ export class BooksService {
     return book.reference_pages || Math.max(...bookDevices.map((device) => device.pages || 0));
   }
 
-  static getTotalReadTime(bookDevices: BookDevice[]): number {
-    return bookDevices.reduce((acc, device) => acc + device.total_read_time, 0);
+  static getTotalReadTime(stats: PageStat[]): number {
+    return stats.reduce((acc, stat) => acc + stat.duration, 0);
   }
 
   static getStartedReading(stats: PageStat[]): number {
@@ -20,8 +20,9 @@ export class BooksService {
     return stats.reduce((acc, stat) => Math.min(acc, stat.start_time), Infinity);
   }
 
-  static getLastOpen(bookDevices: BookDevice[]): number {
-    return bookDevices.reduce((acc, device) => Math.max(acc, device.last_open), 0);
+  static getLastOpen(stats: PageStat[]): number {
+    if (stats.length === 0) return 0;
+    return stats.reduce((acc, stat) => Math.max(acc, stat.start_time), 0);
   }
 
   static getReadPerDay(stats: PageStat[]): Record<string, number> {
@@ -78,9 +79,9 @@ export class BooksService {
     const deletedCount = await AnnotationsRepository.getDeletedCount(book.md5);
 
     const total_pages = this.getTotalPages(book, bookDevices);
-    const total_read_time = this.getTotalReadTime(bookDevices);
+    const total_read_time = this.getTotalReadTime(stats);
     const started_reading = this.getStartedReading(stats);
-    const last_open = this.getLastOpen(bookDevices);
+    const last_open = this.getLastOpen(stats);
     const read_per_day = this.getReadPerDay(stats);
     const total_read_pages = this.getTotalReadPages(book, stats);
     const unique_read_pages = this.getUniqueReadPages(book, stats);
