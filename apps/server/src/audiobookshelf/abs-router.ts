@@ -79,7 +79,9 @@ export async function fetchAllSessions(
       apiKey,
       `/api/me/listening-sessions?page=${page}&itemsPerPage=${itemsPerPage}`
     );
-    const sessions = data.sessions ?? [];
+    const sessions = (data.sessions ?? []).filter(
+      (s: any) => s.deviceInfo?.clientName !== 'ABS-KoSync-Bridge'
+    );
     all.push(...sessions);
     if (sessions.length < itemsPerPage) break;
     page++;
