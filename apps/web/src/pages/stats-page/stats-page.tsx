@@ -133,6 +133,24 @@ export function StatsPage(): JSX.Element {
     );
   }, [books]);
 
+  // Re-derive ebook per-month in the browser using local time — same reason as per-day-of-week below.
+  // Server-computed perMonth uses UTC, shifting sessions near month boundaries into the wrong month.
+  const ebookPerMonth = useMemo((): PerMonthReadingTime[] => {
+    const map = new Map<string, { duration: number; date: number }>();
+    for (const s of stats) {
+      const month = format(new Date(s.start_time), 'MMMM yyyy');
+      const existing = map.get(month);
+      if (existing) {
+        existing.duration += s.duration;
+      } else {
+        map.set(month, { duration: s.duration, date: s.start_time });
+      }
+    }
+    return Array.from(map.entries())
+      .map(([month, { duration, date }]) => ({ month, duration, date }))
+      .sort((a, b) => a.date - b.date);
+  }, [stats]);
+
   // Re-derive ebook per-day-of-week in the browser using local time, so it matches the
   // calendar view. The server-computed perDayOfTheWeek uses UTC, which shifts sessions
   // near midnight into the wrong day for users in non-UTC timezones.
@@ -173,8 +191,8 @@ export function StatsPage(): JSX.Element {
   );
 
   const combinedMonthly = useMemo(
-    () => mergeMonthly(perMonth, absMonthlyMap),
-    [perMonth, absMonthlyMap]
+    () => mergeMonthly(ebookPerMonth, absMonthlyMap),
+    [ebookPerMonth, absMonthlyMap]
   );
 
   const combinedWeekdays = useMemo(
@@ -506,7 +524,7 @@ export function StatsPage(): JSX.Element {
             mt="sm"
             data={
               dataSource === 'ebook'
-                ? perMonth
+                ? ebookPerMonth
                 : Object.entries(absMonthlyMap).map(([month, duration]) => ({ month, duration }))
             }
             dataKey="month"
