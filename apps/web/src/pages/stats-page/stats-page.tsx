@@ -113,7 +113,6 @@ export function StatsPage(): JSX.Element {
       perDayOfTheWeek,
       mostPagesInADay,
       totalReadingTime,
-      longestDay,
       last7DaysReadTime,
       totalPagesRead,
     },
@@ -149,6 +148,17 @@ export function StatsPage(): JSX.Element {
     return Array.from(map.entries())
       .map(([month, { duration, date }]) => ({ month, duration, date }))
       .sort((a, b) => a.date - b.date);
+  }, [stats]);
+
+  // Re-derive longest reading day in the browser using local time.
+  // Server-computed longestDay uses UTC startOfDay, which can split or merge sessions near midnight.
+  const longestDay = useMemo(() => {
+    const timePerDay = stats.reduce<Record<number, number>>((acc, s) => {
+      const day = startOfDay(new Date(s.start_time)).getTime();
+      acc[day] = (acc[day] ?? 0) + s.duration;
+      return acc;
+    }, {});
+    return Math.max(0, ...Object.values(timePerDay));
   }, [stats]);
 
   // Re-derive ebook per-day-of-week in the browser using local time, so it matches the

@@ -24,6 +24,7 @@ import {
   IconSettings,
   IconTable,
 } from '@tabler/icons-react';
+import { startOfDay } from 'date-fns';
 import { sum } from 'ramda';
 import { JSX, useState } from 'react';
 import { useParams } from 'react-router';
@@ -158,7 +159,9 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
     0;
 
   const displayedReadPages = book?.completed_override ? bookPages : (book?.unique_read_pages ?? 0);
-  const readingDays = book ? Object.keys(book.read_per_day).length : 0;
+  const readingDays = book
+    ? new Set(book.stats.map((s) => startOfDay(new Date(s.start_time)).getTime())).size
+    : 0;
   const avgPerDay = readingDays > 0 ? (book?.total_read_time ?? 0) / readingDays : 0;
 
   return (
@@ -235,7 +238,7 @@ function StatsCard({ book }: { book: BookWithData }): JSX.Element {
                   Days reading
                 </Text>
                 <Text size="md" fw={600}>
-                  {Object.keys(book.read_per_day).length}
+                  {readingDays}
                 </Text>
               </Stack>
             </Group>
