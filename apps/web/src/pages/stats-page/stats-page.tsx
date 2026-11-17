@@ -10,7 +10,7 @@ import {
   useMantineTheme,
 } from '@mantine/core';
 import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/icons-react';
-import { format, getDay, parse, startOfDay, subDays } from 'date-fns';
+import { format, getDay, parse, startOfDay, startOfWeek } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
 import { useAbsBooks, useAbsSessions } from '../../api/audiobookshelf';
@@ -33,14 +33,15 @@ import { MonthStats } from './month-stats';
 import { WeekStats } from './week-stats';
 import { YearStats } from './year-stats';
 
+// Weeks run Monday–Sunday throughout the app, so day-of-week charts list Monday first.
 const DAY_ORDER: Record<string, number> = {
-  Sunday: 0,
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
+  Monday: 0,
+  Tuesday: 1,
+  Wednesday: 2,
+  Thursday: 3,
+  Friday: 4,
+  Saturday: 5,
+  Sunday: 6,
 };
 
 function absMonthlyToMap(absDays: Record<string, number>): Record<string, number> {
@@ -113,7 +114,6 @@ export function StatsPage(): JSX.Element {
       perDayOfTheWeek,
       mostPagesInADay,
       totalReadingTime,
-      last7DaysReadTime,
       totalPagesRead,
     },
     isLoading: statsLoading,
@@ -171,8 +171,9 @@ export function StatsPage(): JSX.Element {
       totals[name] = (totals[name] ?? 0) + s.duration;
     }
     return DAY_NAMES
-      .map((name, day) => ({ name, value: totals[name] ?? 0, day }))
-      .filter((d) => d.value > 0);
+      .map((name) => ({ name, value: totals[name] ?? 0, day: DAY_ORDER[name] }))
+      .filter((d) => d.value > 0)
+      .sort((a, b) => a.day - b.day);
   }, [stats]);
 
   // Derive per-day, per-weekday, and per-month maps from sessions using browser-local
@@ -209,15 +210,23 @@ export function StatsPage(): JSX.Element {
     [ebookPerDayOfTheWeek, absSessionDayOfWeek]
   );
 
-  const absLast7DaysTime = useMemo(() => {
-    const today = startOfDay(new Date());
-    const sevenDaysAgo = subDays(today, 6);
-    return absSessions.reduce((acc, s) => {
-      const day = startOfDay(new Date(s.startedAt));
-      if (day >= sevenDaysAgo && day <= today) return acc + s.timeListening;
-      return acc;
-    }, 0);
-  }, [absSessions]);
+  // "This week" in the header means the current Monday–Sunday week in local time, matching
+  // the weekly stats section.
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }).getTime();
+
+  const ebookThisWeekTime = useMemo(
+    () => stats.reduce((acc, s) => (s.start_time >= weekStart ? acc + s.duration : acc), 0),
+    [stats, weekStart]
+  );
+
+  const absThisWeekTime = useMemo(
+    () =>
+      absSessions.reduce(
+        (acc, s) => (s.startedAt >= weekStart ? acc + s.timeListening : acc),
+        0
+      ),
+    [absSessions, weekStart]
+  );
 
   const absLongestDay = useMemo(() => {
     if (!Object.keys(absSessionDayMap).length) return 0;
@@ -273,8 +282,8 @@ export function StatsPage(): JSX.Element {
   const totalListeningTime = absSessions.reduce((acc, s) => acc + s.timeListening, 0);
   const combinedTotal = (showEbooks ? totalReadingTime : 0) + (showAudiobooks ? totalListeningTime : 0);
 
-  const last7Days =
-    (showEbooks ? last7DaysReadTime : 0) + (showAudiobooks ? absLast7DaysTime : 0);
+  const thisWeek =
+    (showEbooks ? ebookThisWeekTime : 0) + (showAudiobooks ? absThisWeekTime : 0);
 
   const activityVerb =
     dataSource === 'audiobook' ? 'listened' : dataSource === 'both' ? 'read or listened' : 'read';
@@ -298,8 +307,8 @@ export function StatsPage(): JSX.Element {
         }}
         fw={900}
       >
-        {last7Days > 0 ? (
-          <>You {activityVerb} for {formatSecondsToHumanReadable(last7Days)} this week. Keep it up!</>
+        {thisWeek > 0 ? (
+          <>You {activityVerb} for {formatSecondsToHumanReadable(thisWeek)} this week. Keep it up!</>
         ) : (
           <>You haven't {activityVerb} this week yet. No better time to start!</>
         )}
