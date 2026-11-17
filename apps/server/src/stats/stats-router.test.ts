@@ -36,7 +36,8 @@ describe('GET /stats', () => {
 
     // TODO: Do we need a more detailed test here provided everything is from the StatsService?
     expect(body).toHaveProperty('perMonth');
-    expect(body.longestDay).toBe(20);
+    // All four stats fall in the same reading session on the same day
+    expect(body.longestDay).toBe(60);
     expect(body.totalPagesRead).toBe(4);
   });
 });

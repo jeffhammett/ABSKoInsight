@@ -6,6 +6,7 @@ import path from 'path';
 import { appConfig } from '../config';
 import { db } from '../knex';
 import { SettingsRepository } from '../settings/settings-repository';
+import { isAccidentalAbsSession } from '../stats/accidental-sessions';
 import { AbsOverridesRepository } from './abs-overrides-repository';
 
 const router = Router();
@@ -82,12 +83,15 @@ export async function fetchAllSessions(
       apiKey,
       `/api/me/listening-sessions?page=${page}&itemsPerPage=${itemsPerPage}`
     );
-    const sessions = (data.sessions ?? []).filter(
+    const pageSessions = data.sessions ?? [];
+    const sessions = pageSessions.filter(
       (s: any) =>
-        s.deviceInfo?.clientName !== 'ABS-KoSync-Bridge' && !blockedIds.has(s.id as string)
+        s.deviceInfo?.clientName !== 'ABS-KoSync-Bridge' &&
+        !blockedIds.has(s.id as string) &&
+        !isAccidentalAbsSession(s)
     );
     all.push(...sessions);
-    if (sessions.length < itemsPerPage) break;
+    if (pageSessions.length < itemsPerPage) break;
     page++;
     if (page >= maxPages) {
       truncated = true;

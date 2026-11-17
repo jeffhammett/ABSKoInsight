@@ -2,6 +2,10 @@ import { faker } from '@faker-js/faker';
 import { Book, BookDevice, Device, PageStat } from '@koinsight/common/types';
 import { Knex } from 'knex';
 
+// Default start times (unix seconds, as stored in page_stat) are sequential and close together,
+// so stats created without an explicit start_time form one continuous reading session.
+let nextStartTime = Math.floor(new Date('2025-01-01T10:00:00Z').getTime() / 1000);
+
 export function fakePageStat(
   book: Book,
   bookDevice: BookDevice,
@@ -12,7 +16,7 @@ export function fakePageStat(
     device_id: device.id,
     book_md5: book.md5,
     page: faker.number.int({ min: 1, max: bookDevice.pages }),
-    start_time: faker.date.past().getTime(),
+    start_time: (nextStartTime += 30),
     duration: faker.number.int({ min: 5, max: 120 }),
     total_pages: bookDevice.pages,
     ...overrides,

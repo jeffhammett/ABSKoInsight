@@ -13,7 +13,7 @@ import { IconClock, IconHeadphones, IconMaximize, IconPageBreak } from '@tabler/
 import { format, getDay, parse, startOfDay, subDays } from 'date-fns';
 import { JSX, useMemo } from 'react';
 import { BarProps } from 'recharts';
-import { useAbsBooks, useAbsSessions, useAbsStats } from '../../api/audiobookshelf';
+import { useAbsBooks, useAbsSessions } from '../../api/audiobookshelf';
 import { useBooks } from '../../api/books';
 import { usePageStats } from '../../api/use-page-stats';
 import { CustomBar } from '../../components/charts/custom-bar';
@@ -119,7 +119,6 @@ export function StatsPage(): JSX.Element {
     isLoading: statsLoading,
   } = usePageStats();
 
-  const { data: absStats, isLoading: absLoading } = useAbsStats();
   const { data: absSessions = [], isLoading: absSessionsLoading } = useAbsSessions();
 
   const booksByMd5 = useMemo(() => {
@@ -177,7 +176,7 @@ export function StatsPage(): JSX.Element {
   }, [stats]);
 
   // Derive per-day, per-weekday, and per-month maps from sessions using browser-local
-  // time (session.startedAt epoch ms), avoiding ABS server timezone offsets in absStats.days
+  // time (session.startedAt epoch ms), avoiding ABS server timezone offsets in ABS's listening-stats
   const absSessionDayMap = useMemo(() => {
     return absSessions.reduce<Record<string, number>>((acc, s) => {
       const key = format(new Date(s.startedAt), 'yyyy-MM-dd');
@@ -260,7 +259,7 @@ export function StatsPage(): JSX.Element {
 
   const isLoading =
     (showEbooks && (booksLoading || statsLoading)) ||
-    (showAudiobooks && (absLoading || absSessionsLoading));
+    (showAudiobooks && absSessionsLoading);
 
   if (isLoading) {
     return (
@@ -270,7 +269,8 @@ export function StatsPage(): JSX.Element {
     );
   }
 
-  const totalListeningTime = absStats?.totalTime ?? 0;
+  // Sum filtered sessions rather than ABS's own total, so blocked and accidental sessions are excluded
+  const totalListeningTime = absSessions.reduce((acc, s) => acc + s.timeListening, 0);
   const combinedTotal = (showEbooks ? totalReadingTime : 0) + (showAudiobooks ? totalListeningTime : 0);
 
   const last7Days =

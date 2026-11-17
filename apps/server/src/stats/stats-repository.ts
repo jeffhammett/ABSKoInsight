@@ -1,5 +1,6 @@
 import { PageStat } from '@koinsight/common/types/page-stat';
 import { db } from '../knex';
+import { removeAccidentalSessions } from './accidental-sessions';
 
 export class StatsRepository {
   private static updateStartTime(stat: PageStat): PageStat {
@@ -14,7 +15,7 @@ export class StatsRepository {
       .whereNotIn('page_stat.id', blocked)
       .select('page_stat.*');
 
-    return stats.map(this.updateStartTime);
+    return removeAccidentalSessions(stats.map(this.updateStartTime));
   }
 
   static async getByBookMD5(book_md5: string): Promise<PageStat[]> {
@@ -22,7 +23,7 @@ export class StatsRepository {
     const bookStats = await db<PageStat>('page_stat')
       .where({ book_md5 })
       .whereNotIn('id', blocked);
-    return bookStats.map(this.updateStartTime);
+    return removeAccidentalSessions(bookStats.map(this.updateStartTime));
   }
 
   static async blockPageStat(id: number): Promise<void> {
